@@ -1,0 +1,20 @@
+# .gitignore
+node_modules/
+.env
+logs/
+*.log
+npm-debug.log*
+.DS_Store
+.vscode/
+.idea/
+
+# Database
+*.sqlite
+*.sqlite3
+
+# Coverage
+coverage/
+
+# Temp
+tmp/
+temp/
