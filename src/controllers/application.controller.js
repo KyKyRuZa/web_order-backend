@@ -1,5 +1,6 @@
 const { Application, ApplicationFile, User } = require('../models');
-const { Op } = require('sequelize');
+const { Op, col } = require('sequelize');
+const fs = require('fs');
 
 class ApplicationController {
   static async getAll(req, res) {
@@ -309,10 +310,13 @@ class ApplicationController {
 
       const where = { id };
 
-      // Клиенты могут удалять только свои черновики
+      // Клиенты могут удалять только свои заявки в определенных статусах
       if (userRole === User.ROLES.CLIENT) {
         where.user_id = userId;
-        where.status = Application.STATUSES.DRAFT;
+        // Клиенты могут удалять заявки в статусах DRAFT и SUBMITTED
+        where.status = {
+          [Op.in]: [Application.STATUSES.DRAFT, Application.STATUSES.SUBMITTED]
+        };
       }
       // Админы могут удалять любые заявки
       else if (userRole !== User.ROLES.ADMIN) {
@@ -419,13 +423,15 @@ class ApplicationController {
       const { id } = req.params;
       const userId = req.user.id;
       const userRole = req.user.role;
+      const { category, description } = req.body;
 
       // Проверяем доступ к заявке
       const where = { id };
       if (userRole === User.ROLES.CLIENT) {
         where.user_id = userId;
       } else if (userRole === User.ROLES.MANAGER) {
-        where.assigned_to = userId;
+        // Менеджеры могут загружать файлы во все заявки (в соответствии с документацией)
+        // где where = { id } просто проверяет существование заявки
       }
 
       const application = await Application.findOne({ where });
@@ -437,20 +443,82 @@ class ApplicationController {
         });
       }
 
-      // В реальном приложении здесь будет multer middleware
-      // Для примера возвращаем заглушку
+      // Проверяем, был ли файл загружен
+      if (!req.file) {
+        return res.status(400).json({
+          success: false,
+          message: 'Файл обязателен для загрузки'
+        });
+      }
+
+      // Проверяем размер файла
+      if (req.file.size > ApplicationFile.MAX_FILE_SIZE) {
+        return res.status(400).json({
+          success: false,
+          message: `Файл превышает максимальный размер ${ApplicationFile.MAX_FILE_SIZE / (1024 * 1024)}MB`
+        });
+      }
+
+      // Проверяем MIME-тип
+      if (!ApplicationFile.ALLOWED_MIME_TYPES.includes(req.file.mimetype)) {
+        return res.status(400).json({
+          success: false,
+          message: `Неподдерживаемый тип файла: ${req.file.mimetype}`
+        });
+      }
+
+      // Проверяем категорию файла
+      if (category && !Object.values(ApplicationFile.FILE_CATEGORIES).includes(category)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Некорректная категория файла'
+        });
+      }
+
+      // Сохраняем информацию о файле в базе данных
+      const fileRecord = await ApplicationFile.create({
+        application_id: application.id,
+        uploaded_by: userId,
+        filename: req.file.filename,
+        original_name: req.file.originalname,
+        mime_type: req.file.mimetype,
+        size: req.file.size,
+        storage_path: req.file.path,
+        file_category: category || ApplicationFile.FILE_CATEGORIES.OTHER,
+        description: description || null
+      });
 
       res.json({
         success: true,
-        message: 'Файл загружен (заглушка)',
+        message: 'Файл успешно загружен',
         data: {
-          application_id: id,
-          uploaded_by: userId,
-          uploaded_at: new Date()
+          file: {
+            id: fileRecord.id,
+            filename: fileRecord.filename,
+            original_name: fileRecord.original_name,
+            mime_type: fileRecord.mime_type,
+            size: fileRecord.size,
+            size_formatted: fileRecord.sizeFormatted,
+            file_category: fileRecord.file_category,
+            description: fileRecord.description,
+            uploaded_at: fileRecord.uploaded_at,
+            is_image: fileRecord.isImage,
+            is_document: fileRecord.isDocument
+          }
         }
       });
     } catch (error) {
       console.error('Upload file error:', error);
+
+      // Удаляем файл с диска, если произошла ошибка при сохранении в БД
+      if (req.file && req.file.path) {
+        try {
+          fs.unlinkSync(req.file.path);
+        } catch (unlinkError) {
+          console.error('Error deleting uploaded file:', unlinkError);
+        }
+      }
+
       res.status(500).json({
         success: false,
         message: 'Ошибка загрузки файла'
@@ -469,7 +537,8 @@ class ApplicationController {
       if (userRole === User.ROLES.CLIENT) {
         where.user_id = userId;
       } else if (userRole === User.ROLES.MANAGER) {
-        where.assigned_to = userId;
+        // Менеджеры могут видеть все заявки (в соответствии с документацией)
+        // где where = { id } просто проверяет существование заявки
       }
 
       const application = await Application.findOne({ where });
@@ -518,35 +587,63 @@ class ApplicationController {
       const userId = req.user.id;
       const userRole = req.user.role;
 
-      const file = await ApplicationFile.findByPk(fileId, {
-        include: [{
-          model: Application,
-          as: 'application'
-        }]
-      });
-
-      if (!file) {
-        return res.status(404).json({
-          success: false,
-          message: 'Файл не найден'
-        });
-      }
-
-      // Проверяем права
+      // Сначала проверяем, принадлежит ли файл заявке, к которой у пользователя есть доступ
+      let file;
       if (userRole === User.ROLES.CLIENT) {
-        if (file.application.user_id !== userId || file.uploaded_by !== userId) {
+        // Клиенты могут удалять файлы только из своих заявок
+        file = await ApplicationFile.findOne({
+          where: { id: fileId },
+          include: [{
+            model: Application,
+            as: 'application',
+            where: { user_id: userId },
+            attributes: [] // Не включаем атрибуты приложения в результат, чтобы не перезаписать их
+          }],
+          attributes: { include: [[col('application.user_id'), 'application_user_id']] }
+        });
+
+        if (!file) {
+          return res.status(404).json({
+            success: false,
+            message: 'Файл не найден или нет доступа'
+          });
+        }
+
+        // Клиенты могут удалять только файлы, которые они загрузили
+        if (file.uploaded_by !== userId) {
           return res.status(403).json({
             success: false,
             message: 'Нет прав для удаления файла'
           });
         }
-      }
-      // Менеджеры могут удалять файлы из назначенных им заявок
-      else if (userRole === User.ROLES.MANAGER) {
-        if (file.application.assigned_to !== userId) {
-          return res.status(403).json({
+      } else if (userRole === User.ROLES.MANAGER) {
+        // Менеджеры могут удалять файлы из любых заявок (в соответствии с документацией)
+        file = await ApplicationFile.findByPk(fileId, {
+          include: [{
+            model: Application,
+            as: 'application'
+          }]
+        });
+
+        if (!file) {
+          return res.status(404).json({
             success: false,
-            message: 'Нет прав для удаления файла'
+            message: 'Файл не найден'
+          });
+        }
+      } else if (userRole === User.ROLES.ADMIN) {
+        // Администраторы могут удалять любые файлы
+        file = await ApplicationFile.findByPk(fileId, {
+          include: [{
+            model: Application,
+            as: 'application'
+          }]
+        });
+
+        if (!file) {
+          return res.status(404).json({
+            success: false,
+            message: 'Файл не найден'
           });
         }
       }

@@ -43,13 +43,27 @@ class ApplicationFile extends Model {
     const units = ['B', 'KB', 'MB', 'GB'];
     let size = this.size;
     let unitIndex = 0;
-    
+
     while (size >= 1024 && unitIndex < units.length - 1) {
       size /= 1024;
       unitIndex++;
     }
-    
+
     return `${Math.round(size * 100) / 100} ${units[unitIndex]}`;
+  }
+
+  // Проверка, является ли файл изображением
+  get isImage() {
+    return this.mime_type.startsWith('image/');
+  }
+
+  // Проверка, является ли файл документом
+  get isDocument() {
+    return [
+      'application/pdf',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    ].includes(this.mime_type);
   }
 }
 

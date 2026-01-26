@@ -82,8 +82,6 @@ class UserController {
         });
       }
 
-
-
       // Убеждаемся, что новый пароль отличается от старого
       if (currentPassword === newPassword) {
         return res.status(400).json({

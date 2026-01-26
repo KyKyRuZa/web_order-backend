@@ -1,5 +1,6 @@
   // src/middlewares/errorHandler.js
   const logger = require('../config/logger');
+  const { ApplicationFile } = require('../models');
 
   const errorHandler = (err, req, res, next) => {
     // Логируем ошибку
@@ -11,13 +12,29 @@
       ip: req.ip
     });
 
+    // Проверяем, является ли ошибка ограничением размера файла от Multer
+    if (err.code === 'LIMIT_FILE_SIZE') {
+      return res.status(400).json({
+        success: false,
+        message: `Файл превышает максимальный размер ${ApplicationFile.MAX_FILE_SIZE / (1024 * 1024)}MB`
+      });
+    }
+
+    // Проверяем, является ли ошибка фильтром файлов от Multer
+    if (err instanceof Error && err.message && err.message.includes('Неподдерживаемый тип файла')) {
+      return res.status(400).json({
+        success: false,
+        message: err.message
+      });
+    }
+
     // Проверяем, является ли ошибка валидацией Sequelize
     if (err.name === 'SequelizeValidationError' || err.name === 'SequelizeUniqueConstraintError') {
       const errors = err.errors.map(e => ({
         field: e.path,
         message: e.message
       }));
-      
+
       return res.status(400).json({
         success: false,
         message: 'Ошибка валидации',

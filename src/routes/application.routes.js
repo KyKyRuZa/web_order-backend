@@ -3,10 +3,11 @@ const router = express.Router();
 const { authMiddleware } = require('../middlewares/auth.middleware');
 const { requireClient } = require('../middlewares/role.middleware');
 const ApplicationController = require('../controllers/application.controller');
-const { 
+const {
   createApplicationValidation,
-  validate 
+  validate
 } = require('../middlewares/validation.middleware');
+const { uploadSingleFile, validateFileSize } = require('../middlewares/fileUpload.middleware');
 
 // Все маршруты требуют аутентификации
 router.use(authMiddleware);
@@ -23,7 +24,7 @@ router.post('/:id/submit', ApplicationController.submit);
 router.get('/:id/transitions', ApplicationController.getStatusTransitions);
 
 // Файлы
-router.post('/:id/files', ApplicationController.uploadFile);
+router.post('/:id/files', uploadSingleFile, validateFileSize, ApplicationController.uploadFile);
 router.get('/:id/files', ApplicationController.getFiles);
 router.delete('/files/:fileId', ApplicationController.deleteFile);
 
