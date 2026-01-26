@@ -2,12 +2,21 @@ const { body, validationResult } = require('express-validator');
 
 const validate = (validations) => {
   return async (req, res, next) => {
+    const logger = require('../config/logger');
+    logger.debug(`Валидация запроса: ${req.method} ${req.path}`);
+    logger.debug(`Тело запроса: ${JSON.stringify(req.body)}`);
+    logger.debug(`Параметры запроса: ${JSON.stringify(req.params)}`);
+    logger.debug(`Количество правил валидации: ${validations.length}`);
+
     await Promise.all(validations.map(validation => validation.run(req)));
 
     const errors = validationResult(req);
     if (errors.isEmpty()) {
+      logger.debug(`Валидация пройдена успешно для: ${req.method} ${req.path}`);
       return next();
     }
+
+    logger.warn(`Ошибки валидации для: ${req.method} ${req.path}`, { errors: errors.array() });
 
     const extractedErrors = {};
     errors.array().forEach(err => {

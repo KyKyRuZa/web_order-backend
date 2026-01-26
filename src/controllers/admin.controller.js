@@ -23,6 +23,28 @@ class AdminController {
       const userId = req.user.id;
       const userRole = req.user.role;
 
+      // Формируем ключ кеша на основе параметров запроса
+      const cacheKey = `admin_applications_${userId}_${userRole}_${JSON.stringify({
+        status,
+        service_type,
+        priority,
+        assigned_to,
+        date_from,
+        date_to,
+        search,
+        page,
+        limit,
+        sort_by,
+        order
+      })}`;
+
+      const cachedResult = require('../config/cache').get(cacheKey);
+
+      if (cachedResult) {
+        console.log(`CACHE HIT: Returning cached admin applications for ${cacheKey}`);
+        return res.json(cachedResult);
+      }
+
       // Базовые условия
       const where = {};
 
@@ -144,7 +166,7 @@ class AdminController {
         serviceTypeDisplay: app.serviceTypeDisplay
       }));
 
-      res.json({
+      const result = {
         success: true,
         data: {
           applications: applicationsWithDisplay,
@@ -182,7 +204,12 @@ class AdminController {
             }
           }
         }
-      });
+      };
+
+      // Кешируем результат на 5 минут
+      require('../config/cache').set(cacheKey, result, 300);
+
+      res.json(result);
     } catch (error) {
       console.error('Get applications error:', error);
       res.status(500).json({

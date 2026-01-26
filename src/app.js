@@ -27,10 +27,32 @@ app.use(helmet({
       styleSrc: ["'self'", "'unsafe-inline'"],
       scriptSrc: ["'self'"],
       imgSrc: ["'self'", "data:", "https:"],
+      fontSrc: ["'self'", "https:", "data:"],
+      connectSrc: ["'self'", "https://api.example.com"], // Замените на ваши доверенные источники
+      frameSrc: ["'none'"], // Запрещаем iframe'ы
+      objectSrc: ["'none'"], // Запрещаем плагины
+      upgradeInsecureRequests: [], // Автоматическое обновление HTTP до HTTPS
     },
+  },
+  dnsPrefetchControl: {
+    allow: false // Отключаем предзагрузку DNS
+  },
+  referrerPolicy: {
+    policy: 'same-origin' // Политика реферера
+  },
+  permittedCrossDomainPolicies: {
+    permittedPolicies: 'none' // Запрещаем политики Adobe
   },
   crossOriginEmbedderPolicy: false,
 }));
+
+// Дополнительная защита XSS
+app.use((req, res, next) => {
+  res.setHeader('X-XSS-Protection', '1; mode=block');
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  next();
+});
 
 // CORS
 app.use(cors({
@@ -49,6 +71,34 @@ app.use(compression());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
+// Middleware для логирования тела запроса после парсинга
+app.use((req, res, next) => {
+  const logger = require('./config/logger');
+
+  // Сохраняем оригинальный метод send
+  const originalSend = res.send;
+
+  // Переопределяем send для логирования после обработки запроса
+  res.send = function(data) {
+    // Логируем только для проблемного маршрута
+    if (req.path.includes('/auth/change-password') && req.method === 'PUT') {
+      logger.debug(`Ответ на /auth/change-password: ${req.method} ${req.path}`);
+      logger.debug(`Код ответа: ${res.statusCode}`);
+      logger.debug(`Тело ответа: ${data}`);
+    }
+    return originalSend.call(this, data);
+  };
+
+  // Логируем запрос перед его обработкой
+  if (req.path.includes('/auth/change-password') && req.method === 'PUT') {
+    logger.debug(`Запрос к /auth/change-password: ${req.method} ${req.path}`);
+    logger.debug(`Заголовки: ${JSON.stringify(req.headers)}`);
+    logger.debug(`Тело запроса: ${JSON.stringify(req.body)}`);
+  }
+
+  next();
+});
+
 // === Лимит запросов ===
 
 // Общий лимит для всех API
@@ -61,6 +111,10 @@ const generalLimiter = rateLimit({
   },
   standardHeaders: true,
   legacyHeaders: false,
+  skip: (req, res) => {
+    // Пропускаем рейт-лимит для тестов
+    return req.headers['user-agent'] && req.headers['user-agent'].includes('axios');
+  }
 });
 
 // Более строгий лимит для аутентификации

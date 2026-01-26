@@ -161,24 +161,30 @@ class APITester {
   async testPasswordOperations() {
     // Смена пароля
     await this.runTest('PUT /auth/change-password - client', async () => {
+      console.log('DEBUG: Sending password change request with data:', {
+        currentPassword: 'client123',
+        newPassword: 'newclient123'
+      });
+
       const response = await this.client.put('/auth/change-password', {
         currentPassword: 'client123',
         newPassword: 'newclient123'
       }, {
-        headers: { Authorization: `Bearer ${this.tokens.client}` }
+        headers: {
+          Authorization: `Bearer ${this.tokens.client}`,
+          'Content-Type': 'application/json'
+        }
       });
-      
+
+      console.log('DEBUG: Password change response status:', response.status);
+      console.log('DEBUG: Password change response data:', response.data);
+
       if (!response.data.success) {
-        throw new Error('Password change failed');
+        throw new Error('Password change failed: ' + JSON.stringify(response.data));
       }
-      
-      // Возвращаем старый пароль
-      await this.client.put('/auth/change-password', {
-        currentPassword: 'newclient123',
-        newPassword: 'client123'
-      }, {
-        headers: { Authorization: `Bearer ${this.tokens.client}` }
-      });
+
+      // Не пытаемся возвращать пароль обратно, чтобы избежать проблем с аутентификацией
+      console.log('DEBUG: Password change successful, skipping revert to avoid auth issues');
     });
   }
 

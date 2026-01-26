@@ -1,229 +1,177 @@
 const { Application, ApplicationFile, User } = require('../models');
 const { Op, col } = require('sequelize');
 const fs = require('fs');
+const { wrapController } = require('../utils/controller-wrapper.util');
 
 class ApplicationController {
-  static async getAll(req, res) {
-    try {
-      const userId = req.user.id;
-      const userRole = req.user.role;
+  static getAll = wrapController(async (req, res) => {
+    const userId = req.user.id;
+    const userRole = req.user.role;
 
-      let where = {};
+    // Используем оптимизированный сервис
+    const filters = {
+      status: req.query.status,
+      service_type: req.query.serviceType,
+      priority: req.query.priority
+    };
 
-      // Клиенты видят только свои заявки
-      if (userRole === User.ROLES.CLIENT) {
-        where.user_id = userId;
-      }
-      // Менеджеры и админы могут фильтровать
-      else {
-        const { userId: filterUserId, status, serviceType } = req.query;
-        if (filterUserId) where.user_id = filterUserId;
-        if (status) where.status = status;
-        if (serviceType) where.service_type = serviceType;
+    const options = {
+      userId,
+      userRole,
+      page: req.query.page,
+      limit: req.query.limit,
+      sortBy: req.query.sortBy || 'created_at',
+      order: req.query.order || 'DESC',
+      includeStats: true
+    };
 
-        // Менеджеры видят только назначенные им заявки
-        if (userRole === User.ROLES.MANAGER) {
-          where.assigned_to = userId;
+    const { getApplicationsOptimized } = require('../services/performance.service');
+    const result = await getApplicationsOptimized(filters, options);
+    res.json(result);
+  })
+
+  static getById = wrapController(async (req, res) => {
+    const { id } = req.params;
+    const userId = req.user.id;
+    const userRole = req.user.role;
+
+    // Формируем ключ кеша
+    const cacheKey = `application_${id}_${userId}_${userRole}`;
+    const cachedResult = require('../config/cache').get(cacheKey);
+
+    if (cachedResult) {
+      console.log(`CACHE HIT: Returning cached application for ${cacheKey}`);
+      return res.json(cachedResult);
+    }
+
+    const where = { id };
+
+    // Клиенты могут видеть только свои заявки
+    if (userRole === User.ROLES.CLIENT) {
+      where.user_id = userId;
+    }
+    // Менеджеры видят только назначенные им заявки
+    else if (userRole === User.ROLES.MANAGER) {
+      where[Op.or] = [
+        { assigned_to: userId },
+        { user_id: userId } // Менеджер может видеть свои собственные заявки как клиент
+      ];
+    }
+
+    const application = await Application.findOne({
+      where,
+      include: [
+        {
+          model: User,
+          as: 'user',
+          attributes: ['id', 'full_name', 'email', 'phone']
+        },
+        {
+          model: User,
+          as: 'assignee',
+          attributes: ['id', 'full_name', 'email']
+        },
+        {
+          model: ApplicationFile,
+          as: 'files',
+          attributes: ['id', 'original_name', 'file_category', 'uploaded_at', 'size', 'mime_type', 'description']
         }
-      }
+      ]
+    });
 
-      const applications = await Application.findAll({
-        where,
-        include: [
-          {
-            model: User,
-            as: 'user',
-            attributes: ['id', 'full_name', 'email', 'phone']
-          },
-          {
-            model: User,
-            as: 'assignee',
-            attributes: ['id', 'full_name', 'email']
-          }
-        ],
-        order: [['created_at', 'DESC']]
-      });
-
-      // Добавляем display значения
-      const applicationsWithDisplay = applications.map(app => ({
-        ...app.toJSON(),
-        statusDisplay: app.statusDisplay,
-        serviceTypeDisplay: app.serviceTypeDisplay,
-        isActive: app.isActive,
-        isEditable: app.isEditable
-      }));
-
-      res.json({
-        success: true,
-        data: { applications: applicationsWithDisplay }
-      });
-    } catch (error) {
-      console.error('Get applications error:', error);
-      res.status(500).json({
+    if (!application) {
+      return res.status(404).json({
         success: false,
-        message: 'Ошибка получения заявок'
+        message: 'Заявка не найдена или у вас нет к ней доступа'
       });
     }
-  }
 
-  static async getById(req, res) {
-    try {
-      const { id } = req.params;
-      const userId = req.user.id;
-      const userRole = req.user.role;
+    // Добавляем display значения
+    const applicationWithDisplay = {
+      ...application.toJSON(),
+      statusDisplay: application.statusDisplay,
+      serviceTypeDisplay: application.serviceTypeDisplay,
+      isActive: application.isActive,
+      isEditable: application.isEditable
+    };
 
-      const where = { id };
+    // Форматируем размеры файлов
+    applicationWithDisplay.files = applicationWithDisplay.files.map(file => ({
+      ...file,
+      sizeFormatted: ApplicationFile.prototype.sizeFormatted.call({ size: file.size }),
+      isImage: file.mime_type.startsWith('image/'),
+      isDocument: ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'].includes(file.mime_type)
+    }));
 
-      // Клиенты могут видеть только свои заявки
-      if (userRole === User.ROLES.CLIENT) {
-        where.user_id = userId;
-      }
-      // Менеджеры видят только назначенные им заявки
-      else if (userRole === User.ROLES.MANAGER) {
-        where[Op.or] = [
-          { assigned_to: userId },
-          { user_id: userId } // Менеджер может видеть свои собственные заявки как клиент
-        ];
-      }
+    const result = {
+      success: true,
+      data: { application: applicationWithDisplay }
+    };
 
-      const application = await Application.findOne({
-        where,
-        include: [
-          {
-            model: User,
-            as: 'user',
-            attributes: ['id', 'full_name', 'email', 'phone']
-          },
-          {
-            model: User,
-            as: 'assignee',
-            attributes: ['id', 'full_name', 'email']
-          },
-          {
-            model: ApplicationFile,
-            as: 'files',
-            attributes: ['id', 'original_name', 'file_category', 'uploaded_at', 'size', 'mime_type', 'description']
-          }
-        ]
-      });
+    // Кешируем результат на 10 минут
+    require('../config/cache').set(cacheKey, result, 600);
 
-      if (!application) {
-        return res.status(404).json({
-          success: false,
-          message: 'Заявка не найдена или у вас нет к ней доступа'
-        });
-      }
+    res.json(result);
+  })
 
-      // Добавляем display значения
-      const applicationWithDisplay = {
-        ...application.toJSON(),
-        statusDisplay: application.statusDisplay,
-        serviceTypeDisplay: application.serviceTypeDisplay,
-        isActive: application.isActive,
-        isEditable: application.isEditable
-      };
+  static create = wrapController(async (req, res) => {
+    const userId = req.user.id;
+    const {
+      title,
+      description,
+      serviceType,
+      contactFullName,
+      contactEmail,
+      contactPhone,
+      companyName,
+      budgetRange
+    } = req.body;
 
-      // Форматируем размеры файлов
-      applicationWithDisplay.files = applicationWithDisplay.files.map(file => ({
-        ...file,
-        sizeFormatted: ApplicationFile.prototype.sizeFormatted.call({ size: file.size }),
-        isImage: file.mime_type.startsWith('image/'),
-        isDocument: ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'].includes(file.mime_type)
-      }));
-
-      res.json({
-        success: true,
-        data: { application: applicationWithDisplay }
-      });
-    } catch (error) {
-      console.error('Get application error:', error);
-      res.status(500).json({
+    // Валидация типа услуги
+    if (serviceType && !Object.values(Application.SERVICE_TYPES).includes(serviceType)) {
+      return res.status(400).json({
         success: false,
-        message: 'Ошибка получения заявки'
+        message: 'Некорректный тип услуги'
       });
     }
-  }
 
-  static async create(req, res) {
-    try {
-      const userId = req.user.id;
-      const {
-        title,
-        description,
-        serviceType,
-        contactFullName,
-        contactEmail,
-        contactPhone,
-        companyName,
-        budgetRange
-      } = req.body;
-
-      // Валидация типа услуги
-      if (serviceType && !Object.values(Application.SERVICE_TYPES).includes(serviceType)) {
-        return res.status(400).json({
-          success: false,
-          message: 'Некорректный тип услуги'
-        });
-      }
-
-      // Валидация бюджетного диапазона
-      if (budgetRange && !Object.values(Application.BUDGET_RANGES).includes(budgetRange)) {
-        return res.status(400).json({
-          success: false,
-          message: 'Некорректный бюджетный диапазон'
-        });
-      }
-
-      // Используем данные пользователя, если не указаны отдельно
-      const applicationData = {
-        user_id: userId,
-        title,
-        description,
-        service_type: serviceType,
-        contact_full_name: contactFullName || req.user.full_name,
-        contact_email: contactEmail || req.user.email,
-        contact_phone: contactPhone || req.user.phone,
-        company_name: companyName || req.user.company_name,
-        budget_range: budgetRange,
-        status: Application.STATUSES.DRAFT
-      };
-
-      const application = await Application.create(applicationData);
-
-      // Добавляем display значения
-      const applicationWithDisplay = {
-        ...application.toJSON(),
-        statusDisplay: application.statusDisplay,
-        serviceTypeDisplay: application.serviceTypeDisplay
-      };
-
-      res.status(201).json({
-        success: true,
-        message: 'Заявка создана',
-        data: { application: applicationWithDisplay }
-      });
-    } catch (error) {
-      console.error('Create application error:', error);
-
-      if (error.name === 'SequelizeValidationError') {
-        const errors = error.errors.map(e => ({
-          field: e.path,
-          message: e.message
-        }));
-
-        return res.status(400).json({
-          success: false,
-          message: 'Ошибка валидации',
-          errors
-        });
-      }
-
-      res.status(500).json({
+    // Валидация бюджетного диапазона
+    if (budgetRange && !Object.values(Application.BUDGET_RANGES).includes(budgetRange)) {
+      return res.status(400).json({
         success: false,
-        message: 'Ошибка создания заявки'
+        message: 'Некорректный бюджетный диапазон'
       });
     }
-  }
+
+    // Используем данные пользователя, если не указаны отдельно
+    const applicationData = {
+      user_id: userId,
+      title,
+      description,
+      service_type: serviceType,
+      contact_full_name: contactFullName || req.user.full_name,
+      contact_email: contactEmail || req.user.email,
+      contact_phone: contactPhone || req.user.phone,
+      company_name: companyName || req.user.company_name,
+      budget_range: budgetRange,
+      status: Application.STATUSES.DRAFT
+    };
+
+    const application = await Application.create(applicationData);
+
+    // Добавляем display значения
+    const applicationWithDisplay = {
+      ...application.toJSON(),
+      statusDisplay: application.statusDisplay,
+      serviceTypeDisplay: application.serviceTypeDisplay
+    };
+
+    res.status(201).json({
+      success: true,
+      message: 'Заявка создана',
+      data: { application: applicationWithDisplay }
+    });
+  })
 
   static async update(req, res) {
     try {
@@ -532,6 +480,15 @@ class ApplicationController {
       const userId = req.user.id;
       const userRole = req.user.role;
 
+      // Формируем ключ кеша
+      const cacheKey = `application_files_${id}_${userId}_${userRole}`;
+      const cachedResult = require('../config/cache').get(cacheKey);
+
+      if (cachedResult) {
+        console.log(`CACHE HIT: Returning cached files for ${cacheKey}`);
+        return res.json(cachedResult);
+      }
+
       // Проверяем доступ к заявке
       const where = { id };
       if (userRole === User.ROLES.CLIENT) {
@@ -568,10 +525,15 @@ class ApplicationController {
         isDocument: file.isDocument
       }));
 
-      res.json({
+      const result = {
         success: true,
         data: { files: filesWithDisplay }
-      });
+      };
+
+      // Кешируем результат на 10 минут
+      require('../config/cache').set(cacheKey, result, 600);
+
+      res.json(result);
     } catch (error) {
       console.error('Get files error:', error);
       res.status(500).json({

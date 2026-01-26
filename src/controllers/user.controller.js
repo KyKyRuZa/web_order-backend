@@ -1,5 +1,6 @@
 const { User, Application } = require('../models');
 const { Op } = require('sequelize');
+const { wrapController } = require('../utils/controller-wrapper.util');
 
 class UserController {
   static async updateProfile(req, res) {
@@ -64,18 +65,33 @@ class UserController {
       const { currentPassword, newPassword } = req.body;
       const userId = req.user.id;
 
+      // Добавляем логирование
+      const logger = require('../config/logger');
+      logger.debug(`Попытка изменения пароля для пользователя: ${userId}`);
+      logger.debug(`Ключи тела запроса: ${Object.keys(req.body)}`);
+      logger.debug(`Текущий пароль предоставлен: ${!!currentPassword}`);
+      logger.debug(`Новый пароль предоставлен: ${!!newPassword}`);
+      logger.debug(`Длина текущего пароля: ${currentPassword ? currentPassword.length : 'N/A'}`);
+      logger.debug(`Длина нового пароля: ${newPassword ? newPassword.length : 'N/A'}`);
+
       const user = await User.findByPk(userId);
 
       if (!user) {
+        logger.warn(`Пользователь не найден для изменения пароля: ${userId}`);
         return res.status(404).json({
           success: false,
           message: 'Пользователь не найден'
         });
       }
 
+      logger.debug(`Пользователь найден: ${user.email}`);
+
       // Проверяем текущий пароль
       const isValidPassword = await user.validatePassword(currentPassword);
+      logger.debug(`Результат проверки пароля: ${isValidPassword}`);
+
       if (!isValidPassword) {
+        logger.warn(`Неверный текущий пароль для пользователя: ${userId}`);
         return res.status(400).json({
           success: false,
           message: 'Текущий пароль неверен'
@@ -84,6 +100,7 @@ class UserController {
 
       // Убеждаемся, что новый пароль отличается от старого
       if (currentPassword === newPassword) {
+        logger.warn(`Новый пароль совпадает с текущим для пользователя: ${userId}`);
         return res.status(400).json({
           success: false,
           message: 'Новый пароль должен отличаться от текущего'
@@ -94,6 +111,7 @@ class UserController {
       user.password = newPassword;
       await user.save();
 
+      logger.info(`Пароль успешно изменен для пользователя: ${userId}`);
       res.json({
         success: true,
         message: 'Пароль успешно изменен'
@@ -220,62 +238,25 @@ class UserController {
   static async getStats(req, res) {
     try {
       const userId = req.user.id;
-      
-      // Статистика по заявкам пользователя
-      const applicationStats = await Application.findAll({
-        attributes: [
-          'status',
-          [require('sequelize').fn('COUNT', require('sequelize').col('id')), 'count']
-        ],
-        where: { user_id: userId },
-        group: ['status']
-      });
-      
-      // Общее количество заявок
-      const totalApplications = applicationStats.reduce((sum, stat) => sum + parseInt(stat.dataValues.count), 0);
-      
-      // Активные заявки
-      const activeApplications = applicationStats
-        .filter(stat => [
-          Application.STATUSES.SUBMITTED,
-          Application.STATUSES.IN_REVIEW,
-          Application.STATUSES.ESTIMATED,
-          Application.STATUSES.APPROVED,
-          Application.STATUSES.IN_PROGRESS
-        ].includes(stat.status))
-        .reduce((sum, stat) => sum + parseInt(stat.dataValues.count), 0);
-      
-      // Последние заявки
-      const recentApplications = await Application.findAll({
-        where: { user_id: userId },
-        limit: 5,
-        order: [['created_at', 'DESC']],
-        attributes: ['id', 'title', 'status', 'created_at', 'service_type']
-      });
-      
-      res.json({
-        success: true,
-        data: {
-          overview: {
-            total_applications: totalApplications,
-            active_applications: activeApplications,
-            draft_applications: applicationStats
-              .find(stat => stat.status === Application.STATUSES.DRAFT)?.dataValues.count || 0,
-            completed_applications: applicationStats
-              .find(stat => stat.status === Application.STATUSES.COMPLETED)?.dataValues.count || 0
-          },
-          by_status: applicationStats.map(stat => ({
-            status: stat.status,
-            status_display: Application.STATUSES_DISPLAY[stat.status] || stat.status,
-            count: parseInt(stat.dataValues.count)
-          })),
-          recent_applications: recentApplications.map(app => ({
-            ...app.toJSON(),
-            statusDisplay: app.statusDisplay,
-            serviceTypeDisplay: app.serviceTypeDisplay
-          }))
-        }
-      });
+      const userRole = req.user.role;
+
+      // Формируем ключ кеша
+      const cacheKey = `user_stats_${userId}_${userRole}`;
+      const cachedResult = require('../config/cache').get(cacheKey);
+
+      if (cachedResult) {
+        console.log(`CACHE HIT: Returning cached stats for ${cacheKey}`);
+        return res.json(cachedResult);
+      }
+
+      // Используем оптимизированный сервис для получения статистики
+      const { getStatsOptimized } = require('../services/performance.service');
+      const stats = await getStatsOptimized(userId, userRole);
+
+      // Кешируем результат на 5 минут
+      require('../config/cache').set(cacheKey, stats, 300);
+
+      res.json(stats);
     } catch (error) {
       console.error('Get user stats error:', error);
       res.status(500).json({

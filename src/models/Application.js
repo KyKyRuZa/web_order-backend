@@ -38,6 +38,37 @@ class Application extends Model {
     URGENT: 'urgent'
   });
 
+  // Статический метод для получения отображаемого значения статуса
+  static getStatusDisplay(status) {
+    const statusMap = {
+      [Application.STATUSES.DRAFT]: 'Черновик',
+      [Application.STATUSES.SUBMITTED]: 'Отправлено',
+      [Application.STATUSES.IN_REVIEW]: 'На рассмотрении',
+      [Application.STATUSES.NEEDS_INFO]: 'Требуется информация',
+      [Application.STATUSES.ESTIMATED]: 'Оценено',
+      [Application.STATUSES.APPROVED]: 'Утверждено',
+      [Application.STATUSES.IN_PROGRESS]: 'В работе',
+      [Application.STATUSES.COMPLETED]: 'Завершено',
+      [Application.STATUSES.CANCELLED]: 'Отменено'
+    };
+
+    return statusMap[status] || status;
+  }
+
+  // Статический метод для получения отображаемого значения типа услуги
+  static getServiceTypeDisplay(serviceType) {
+    const serviceMap = {
+      [Application.SERVICE_TYPES.LANDING]: 'Лендинг',
+      [Application.SERVICE_TYPES.CORPORATE]: 'Корпоративный сайт',
+      [Application.SERVICE_TYPES.ECOMMERCE]: 'Интернет-магазин',
+      [Application.SERVICE_TYPES.WEB_APP]: 'Веб-приложение',
+      [Application.SERVICE_TYPES.REDESIGN]: 'Редизайн',
+      [Application.SERVICE_TYPES.OTHER]: 'Другое'
+    };
+
+    return serviceMap[serviceType] || serviceType;
+  }
+
   // Проверка доступных статусов для перехода
   static getStatusTransitions(currentStatus) {
     const transitions = {
@@ -313,6 +344,19 @@ Application.init(
       },
       {
         fields: ['created_at']
+      },
+      // Комбинированные индексы для часто используемых запросов
+      {
+        fields: ['user_id', 'status']
+      },
+      {
+        fields: ['assigned_to', 'status']
+      },
+      {
+        fields: ['user_id', 'created_at']
+      },
+      {
+        fields: ['status', 'created_at']
       }
     ]
   }

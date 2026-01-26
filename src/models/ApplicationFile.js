@@ -160,6 +160,13 @@ ApplicationFile.init(
       },
       {
         fields: ['file_category']
+      },
+      // Комбинированные индексы для часто используемых запросов
+      {
+        fields: ['application_id', 'uploaded_at']
+      },
+      {
+        fields: ['uploaded_by', 'uploaded_at']
       }
     ]
   }
