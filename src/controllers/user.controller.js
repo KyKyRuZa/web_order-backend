@@ -240,21 +240,9 @@ class UserController {
       const userId = req.user.id;
       const userRole = req.user.role;
 
-      // Формируем ключ кеша
-      const cacheKey = `user_stats_${userId}_${userRole}`;
-      const cachedResult = require('../config/cache').get(cacheKey);
-
-      if (cachedResult) {
-        console.log(`CACHE HIT: Returning cached stats for ${cacheKey}`);
-        return res.json(cachedResult);
-      }
-
       // Используем оптимизированный сервис для получения статистики
-      const { getStatsOptimized } = require('../services/performance.service');
-      const stats = await getStatsOptimized(userId, userRole);
-
-      // Кешируем результат на 5 минут
-      require('../config/cache').set(cacheKey, stats, 300);
+      const PerformanceService = require('../services/performance.service');
+      const stats = await PerformanceService.getStatsOptimized(userId, userRole);
 
       res.json(stats);
     } catch (error) {

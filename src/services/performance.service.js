@@ -1,33 +1,20 @@
 const { Application, User, ApplicationFile } = require('../models');
 const { Op, fn, col } = require('sequelize');
-const cache = require('../config/cache');
 
 class PerformanceService {
-  /**
-   * Оптимизированный метод получения заявок с кешированием и эффективной выборкой
-   */
   static async getApplicationsOptimized(filters = {}, options = {}) {
-    const {
-      userId,
-      userRole,
-      page = 1,
-      limit = 20,
-      sortBy = 'created_at',
-      order = 'DESC',
-      includeStats = false
-    } = options;
-
-    // Формируем ключ кеша
-    const cacheKey = `optimized_applications_${userId}_${userRole}_${JSON.stringify(filters)}_${page}_${limit}_${sortBy}_${order}`;
-    const cachedResult = cache.get(cacheKey);
-
-    if (cachedResult) {
-      console.log(`CACHE HIT: Returning cached optimized applications for ${cacheKey}`);
-      return cachedResult;
-    }
-
     try {
-      const where = {};
+      const {
+        userId,
+        userRole,
+        page = 1,
+        limit = 20,
+        sortBy = 'created_at',
+        order = 'DESC',
+        includeStats = false
+      } = options;
+
+      let where = {};
 
       // Ограничиваем доступ в зависимости от роли
       if (userRole === User.ROLES.CLIENT) {
@@ -86,14 +73,14 @@ class PerformanceService {
         // Добавляем вычисляемые поля без дополнительных запросов
         return {
           ...appJSON,
-          statusDisplay: app.statusDisplay,  // Используем геттер модели
-          serviceTypeDisplay: app.serviceTypeDisplay,  // Используем геттер модели
-          isActive: app.isActive,  // Используем геттер модели
-          isEditable: app.isEditable  // Используем геттер модели
+          statusDisplay: app.statusDisplay,
+          serviceTypeDisplay: app.serviceTypeDisplay,
+          isActive: app.isActive,
+          isEditable: app.isEditable
         };
       });
 
-      const result = {
+      return {
         success: true,
         data: {
           applications: applicationsWithComputed,
@@ -107,29 +94,13 @@ class PerformanceService {
           }
         }
       };
-
-      // Кешируем результат на 5 минут
-      cache.set(cacheKey, result, 300);
-
-      return result;
     } catch (error) {
       console.error('Optimized applications query error:', error);
       throw error;
     }
   }
 
-  /**
-   * Оптимизированный метод получения статистики
-   */
   static async getStatsOptimized(userId, userRole) {
-    const cacheKey = `user_stats_optimized_${userId}_${userRole}`;
-    const cachedResult = cache.get(cacheKey);
-
-    if (cachedResult) {
-      console.log(`CACHE HIT: Returning cached optimized stats for ${cacheKey}`);
-      return cachedResult;
-    }
-
     try {
       // Используем raw: true для более быстрых запросов без создания экземпляров моделей
       const [totalApplications, activeApplications, statusBreakdown] = await Promise.all([
@@ -166,7 +137,7 @@ class PerformanceService {
         })
       ]);
 
-      const result = {
+      return {
         success: true,
         data: {
           overview: {
@@ -181,29 +152,16 @@ class PerformanceService {
           }))
         }
       };
-
-      // Кешируем результат на 2 минуты
-      cache.set(cacheKey, result, 120);
-
-      return result;
     } catch (error) {
       console.error('Optimized stats query error:', error);
       throw error;
     }
   }
 
-  /**
-   * Метод для очистки кеша по ключевым событиям
-   */
   static invalidateCache(pattern) {
     // В реальной реализации здесь будет логика очистки кеша по шаблону
     console.log(`CACHE INVALIDATION: Clearing cache for pattern ${pattern}`);
   }
 }
 
-// Экспортируем отдельные функции для удобства импорта
-module.exports = {
-  getApplicationsOptimized: PerformanceService.getApplicationsOptimized.bind(PerformanceService),
-  getStatsOptimized: PerformanceService.getStatsOptimized.bind(PerformanceService),
-  invalidateCache: PerformanceService.invalidateCache.bind(PerformanceService)
-};
+module.exports = PerformanceService;

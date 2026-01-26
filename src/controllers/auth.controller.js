@@ -353,14 +353,6 @@ class AuthController {
     try {
       const userId = req.user.id;
 
-      // Формируем ключ кеша
-      const cacheKey = `user_profile_${userId}`;
-      const cachedResult = require('../config/cache').get(cacheKey);
-
-      if (cachedResult) {
-        console.log(`CACHE HIT: Returning cached profile for ${cacheKey}`);
-        return res.json(cachedResult);
-      }
 
       const userWithFlags = {
         ...req.user.toJSON(),
@@ -375,9 +367,6 @@ class AuthController {
           user: userWithFlags
         }
       };
-
-      // Кешируем результат на 5 минут
-      require('../config/cache').set(cacheKey, result, 300);
 
       res.json(result);
     } catch (error) {
