@@ -2,40 +2,134 @@ const express = require('express');
 const helmet = require('helmet');
 const cors = require('cors');
 const rateLimit = require('express-rate-limit');
+const morgan = require('morgan');
+const compression = require('compression');
 const errorHandler = require('./middlewares/errorHandler');
+const logger = require('./config/logger');
 
 // Импорт маршрутов
 const authRoutes = require('./routes/auth.routes');
 const applicationRoutes = require('./routes/application.routes');
+const adminRoutes = require('./routes/admin.routes');
 
 const app = express();
 
-// Базовые middleware
-app.use(helmet());
-app.use(cors({
-  origin: process.env.CLIENT_URL || 'http://localhost:3000',
-  credentials: true
+// === Базовые middleware ===
+
+// Логирование запросов
+app.use(morgan('combined', { stream: logger.stream }));
+
+// Безопасность
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      scriptSrc: ["'self'"],
+      imgSrc: ["'self'", "data:", "https:"],
+    },
+  },
+  crossOriginEmbedderPolicy: false,
 }));
 
-// Парсинг JSON
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+// CORS
+app.use(cors({
+  origin: process.env.CLIENT_URL || 'http://localhost:3000',
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  exposedHeaders: ['Content-Range', 'X-Content-Range'],
+  maxAge: 86400, // 24 часа
+}));
 
-// Лимит запросов
-const limiter = rateLimit({
+// Сжатие ответов
+app.use(compression());
+
+// Парсинг JSON
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// === Лимит запросов ===
+
+// Общий лимит для всех API
+const generalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 минут
   max: 100, // лимит запросов с одного IP
-  message: 'Слишком много запросов с этого IP, попробуйте позже'
+  message: {
+    success: false,
+    message: 'Слишком много запросов с этого IP, попробуйте позже'
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
 });
-app.use('/api', limiter);
 
-// Health-check маршруты
+// Более строгий лимит для аутентификации
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  message: {
+    success: false,
+    message: 'Слишком много попыток входа, попробуйте позже'
+  }
+});
+
+// Применяем лимиты
+app.use('/api', generalLimiter);
+app.use('/api/auth/login', authLimiter);
+app.use('/api/auth/register', authLimiter);
+app.use('/api/auth/forgot-password', authLimiter);
+
+// === Health-check и тестовые маршруты ===
+
+// Простой health-check
 app.get('/api/health', (req, res) => {
   res.json({
     success: true,
     message: 'Сервер работает',
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    environment: process.env.NODE_ENV,
+    version: process.env.npm_package_version || '1.0.0'
   });
+});
+
+// Подробный health-check с проверкой БД
+app.get('/api/health/detailed', async (req, res, next) => {
+  try {
+    const sequelize = require('./config/sequelize');
+    
+    // Проверяем подключение к БД
+    await sequelize.authenticate();
+    
+    // Проверяем несколько ключевых таблиц
+    const { User, Application } = require('./models');
+    
+    const [userCount, applicationCount] = await Promise.all([
+      User.count(),
+      Application.count()
+    ]);
+    
+    res.json({
+      success: true,
+      message: 'Все системы работают нормально',
+      database: {
+        status: 'connected',
+        users: userCount,
+        applications: applicationCount
+      },
+      memory: {
+        rss: `${Math.round(process.memoryUsage().rss / 1024 / 1024)} MB`,
+        heapTotal: `${Math.round(process.memoryUsage().heapTotal / 1024 / 1024)} MB`,
+        heapUsed: `${Math.round(process.memoryUsage().heapUsed / 1024 / 1024)} MB`
+      },
+      node: {
+        version: process.version,
+        platform: process.platform
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
 });
 
 // Тестовый маршрут для проверки БД
@@ -43,23 +137,50 @@ app.get('/api/test-db', async (req, res, next) => {
   try {
     const sequelize = require('./config/sequelize');
     await sequelize.authenticate();
+    
+    // Проверяем основные таблицы
+    const queryInterface = sequelize.getQueryInterface();
+    const tables = await queryInterface.showAllTables();
+    
     res.json({
       success: true,
-      message: 'База данных подключена успешно'
+      message: 'База данных подключена успешно',
+      tables: tables
     });
   } catch (error) {
     next(error);
   }
 });
 
-// Основные маршруты API
+// Маршрут для получения информации о версии API
+app.get('/api/version', (req, res) => {
+  res.json({
+    success: true,
+    data: {
+      api: {
+        name: 'WebDev Orders API',
+        version: process.env.npm_package_version || '1.0.0',
+        description: 'API для системы заказов веб-разработки'
+      },
+      endpoints: {
+        auth: '/api/auth',
+        applications: '/api/applications',
+        admin: '/api/admin'
+      },
+      documentation: process.env.API_DOCS_URL || 'https://docs.example.com'
+    }
+  });
+});
+
+// === Основные маршруты API ===
 app.use('/api/auth', authRoutes);
 app.use('/api/applications', applicationRoutes);
+app.use('/api/admin', adminRoutes);
 
-// Обработчик ошибок
+// === Обработка ошибок ===
 app.use(errorHandler);
 
-// Обработка 404
+// === Обработка 404 ===
 app.use((req, res) => {
   res.status(404).json({
     success: false,

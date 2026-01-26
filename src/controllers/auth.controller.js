@@ -6,85 +6,104 @@ const EmailService = require('../services/email.service');
 const logger = require('../config/logger');
 
 class AuthController {
-    static async register(req, res) {
-    try {
-        const { email, password, fullName, phone, companyName } = req.body;
-
-        // Проверяем, существует ли пользователь
-        const existingUser = await User.findOne({ where: { email } });
-        if (existingUser) {
-        return res.status(400).json({
-            success: false,
-            message: 'Пользователь с таким email уже существует'
-        });
-        }
-
-        // Создаем токен для верификации
-        const emailVerificationToken = crypto.randomBytes(32).toString('hex');
-
-        // В режиме разработки сразу подтверждаем email
-        const isDevelopment = process.env.NODE_ENV === 'development';
-        
-        // Создаем пользователя
-        const user = await User.create({
-        email,
-        password_hash: password,
-        full_name: fullName,
-        phone,
-        company_name: companyName,
-        email_verification_token: isDevelopment ? null : emailVerificationToken,
-        is_email_verified: isDevelopment, // В разработке сразу подтвержден
-        role: 'client'
-        });
-
-        // Отправляем email для верификации только в production
-        if (!isDevelopment) {
-        await EmailService.sendVerificationEmail(email, emailVerificationToken);
-        }
-
-        // Отправляем приветственное письмо
-        await EmailService.sendWelcomeEmail(email, fullName);
-
-        // Создаем JWT токен
-        const accessToken = JWTService.generateAccessToken(user);
-        const refreshToken = JWTService.generateRefreshToken(user);
-
-        // Убираем чувствительные данные
-        const userResponse = user.toJSON();
-
-        const message = isDevelopment 
-        ? 'Регистрация успешна. Email автоматически подтвержден (режим разработки).'
-        : 'Регистрация успешна. Проверьте email для подтверждения.';
-
-        res.status(201).json({
-        success: true,
-        message,
-        data: {
-            user: userResponse,
-            tokens: {
-            accessToken,
-            refreshToken
-            }
-        }
-        });
-    } catch (error) {
-        console.error('Register error:', error);
-        res.status(500).json({
+  // auth.controller.js - исправленный метод register
+static async register(req, res) {
+  try {
+    const { email, password, fullName, phone, companyName } = req.body;
+    
+    // Проверяем, существует ли пользователь
+    const existingUser = await User.findOne({ where: { email } });
+    if (existingUser) {
+      return res.status(400).json({
         success: false,
-        message: 'Ошибка при регистрации',
-        error: process.env.NODE_ENV === 'development' ? error.message : undefined
-        });
+        message: 'Пользователь с таким email уже существует'
+      });
     }
+
+    // Создаем токен для верификации
+    const emailVerificationToken = crypto.randomBytes(32).toString('hex');
+
+    // В режиме разработки сразу подтверждаем email
+    const isDevelopment = process.env.NODE_ENV === 'development';
+    
+    console.log('🔧 Создание пользователя:', { email, hasPassword: !!password });
+    
+    // Создаем пользователя
+    const user = await User.create({
+      email,
+      password: password, // Виртуальное поле - хук beforeSave создаст password_hash
+      full_name: fullName,
+      phone,
+      company_name: companyName,
+      email_verification_token: isDevelopment ? null : emailVerificationToken,
+      is_email_verified: isDevelopment,
+      role: User.ROLES.CLIENT
+    });
+
+    console.log('✅ Пользователь создан, password_hash:', user.password_hash ? 'есть' : 'нет');
+    
+    // Отправляем email для верификации только в production
+    if (!isDevelopment) {
+      await EmailService.sendVerificationEmail(email, emailVerificationToken);
     }
+
+    // Отправляем приветственное письмо
+    await EmailService.sendWelcomeEmail(email, fullName);
+
+    // Создаем JWT токен
+    const accessToken = JWTService.generateAccessToken(user);
+    const refreshToken = JWTService.generateRefreshToken(user);
+
+    // Убираем чувствительные данные
+    const userResponse = user.toJSON();
+
+    const message = isDevelopment 
+      ? 'Регистрация успешна. Email автоматически подтвержден (режим разработки).'
+      : 'Регистрация успешна. Проверьте email для подтверждения.';
+
+    res.status(201).json({
+      success: true,
+      message,
+      data: {
+        user: userResponse,
+        tokens: {
+          accessToken,
+          refreshToken
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Register error:', error);
+    console.error('Validation errors:', error.errors);
+    
+    if (error.name === 'SequelizeValidationError') {
+      const errors = error.errors.map(e => ({
+        field: e.path,
+        message: e.message
+      }));
+      
+      return res.status(400).json({
+        success: false,
+        message: 'Ошибка валидации',
+        errors
+      });
+    }
+    
+    res.status(500).json({
+      success: false,
+      message: 'Ошибка при регистрации',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+}
 
   static async login(req, res) {
     try {
       const { email, password } = req.body;
 
-      // Находим пользователя с ВКЛЮЧЕНИЕМ password_hash
+      // Находим пользователя
       const user = await User.findOne({ 
-        where: { email },
-        attributes: { include: ['password_hash'] } // Явно включаем password_hash
+        where: { email }
       });
       
       if (!user) {
@@ -93,12 +112,6 @@ class AuthController {
           message: 'Неверный email или пароль'
         });
       }
-
-      console.log('User found for login:', {
-        id: user.id,
-        email: user.email,
-        hasPasswordHash: !!user.password_hash
-      });
 
       // Проверяем пароль
       const isValidPassword = await user.validatePassword(password);
@@ -126,8 +139,7 @@ class AuthController {
       }
 
       // Обновляем время последнего входа
-      user.last_login_at = new Date();
-      await user.save();
+      await user.updateLastLogin();
 
       // Создаем токены
       const accessToken = JWTService.generateAccessToken(user);
@@ -140,7 +152,12 @@ class AuthController {
         success: true,
         message: 'Вход выполнен успешно',
         data: {
-          user: userResponse,
+          user: {
+            ...userResponse,
+            isManager: user.isManager,
+            isAdmin: user.isAdmin,
+            emailVerified: user.emailVerified
+          },
           tokens: {
             accessToken,
             refreshToken
@@ -314,8 +331,8 @@ class AuthController {
         });
       }
 
-      // Обновляем пароль
-      user.password_hash = password; // Хэширование в хуке модели
+      // Обновляем пароль (хэширование в хуке модели)
+      user.password = password;
       user.reset_password_token = null;
       user.reset_password_expires = null;
       await user.save();
@@ -335,11 +352,17 @@ class AuthController {
 
   static async getProfile(req, res) {
     try {
-      // Пользователь уже добавлен в req в middleware
+      const userWithFlags = {
+        ...req.user.toJSON(),
+        isManager: req.user.isManager,
+        isAdmin: req.user.isAdmin,
+        emailVerified: req.user.emailVerified
+      };
+      
       res.json({
         success: true,
         data: {
-          user: req.user
+          user: userWithFlags
         }
       });
     } catch (error) {

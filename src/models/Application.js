@@ -2,7 +2,7 @@ const { Model, DataTypes } = require('sequelize');
 const sequelize = require('../config/sequelize');
 
 class Application extends Model {
-  static STATUSES = {
+  static STATUSES = Object.freeze({
     DRAFT: 'draft',
     SUBMITTED: 'submitted',
     IN_REVIEW: 'in_review',
@@ -12,16 +12,162 @@ class Application extends Model {
     IN_PROGRESS: 'in_progress',
     COMPLETED: 'completed',
     CANCELLED: 'cancelled'
-  };
+  });
 
-  static SERVICE_TYPES = {
+  static SERVICE_TYPES = Object.freeze({
     LANDING: 'landing_page',
     CORPORATE: 'corporate_site',
     ECOMMERCE: 'ecommerce',
     WEB_APP: 'web_application',
     REDESIGN: 'redesign',
     OTHER: 'other'
-  };
+  });
+
+  static BUDGET_RANGES = Object.freeze({
+    UNDER_50K: 'under_50k',
+    FROM_50K_TO_100K: '50k_100k',
+    FROM_100K_TO_300K: '100k_300k',
+    FROM_300K_TO_500K: '300k_500k',
+    NEGOTIABLE: 'negotiable'
+  });
+
+  static PRIORITIES = Object.freeze({
+    LOW: 'low',
+    NORMAL: 'normal',
+    HIGH: 'high',
+    URGENT: 'urgent'
+  });
+
+  // Проверка доступных статусов для перехода
+  static getStatusTransitions(currentStatus) {
+    const transitions = {
+      [Application.STATUSES.DRAFT]: [
+        Application.STATUSES.SUBMITTED,
+        Application.STATUSES.CANCELLED
+      ],
+      [Application.STATUSES.SUBMITTED]: [
+        Application.STATUSES.IN_REVIEW,
+        Application.STATUSES.CANCELLED
+      ],
+      [Application.STATUSES.IN_REVIEW]: [
+        Application.STATUSES.NEEDS_INFO,
+        Application.STATUSES.ESTIMATED,
+        Application.STATUSES.CANCELLED
+      ],
+      [Application.STATUSES.NEEDS_INFO]: [
+        Application.STATUSES.IN_REVIEW
+      ],
+      [Application.STATUSES.ESTIMATED]: [
+        Application.STATUSES.APPROVED,
+        Application.STATUSES.NEEDS_INFO
+      ],
+      [Application.STATUSES.APPROVED]: [
+        Application.STATUSES.IN_PROGRESS,
+        Application.STATUSES.CANCELLED
+      ],
+      [Application.STATUSES.IN_PROGRESS]: [
+        Application.STATUSES.COMPLETED,
+        Application.STATUSES.CANCELLED
+      ],
+      [Application.STATUSES.COMPLETED]: [],
+      [Application.STATUSES.CANCELLED]: []
+    };
+
+    return transitions[currentStatus] || [];
+  }
+
+  // Проверка возможности смены статуса
+  canChangeStatus(newStatus) {
+    return Application.getStatusTransitions(this.status).includes(newStatus);
+  }
+
+  // Геттер для человекочитаемого статуса
+  get statusDisplay() {
+    const statusMap = {
+      [Application.STATUSES.DRAFT]: 'Черновик',
+      [Application.STATUSES.SUBMITTED]: 'Отправлено',
+      [Application.STATUSES.IN_REVIEW]: 'На рассмотрении',
+      [Application.STATUSES.NEEDS_INFO]: 'Требуется информация',
+      [Application.STATUSES.ESTIMATED]: 'Оценено',
+      [Application.STATUSES.APPROVED]: 'Утверждено',
+      [Application.STATUSES.IN_PROGRESS]: 'В работе',
+      [Application.STATUSES.COMPLETED]: 'Завершено',
+      [Application.STATUSES.CANCELLED]: 'Отменено'
+    };
+
+    return statusMap[this.status] || this.status;
+  }
+
+  // Геттер для типа услуги
+  get serviceTypeDisplay() {
+    const serviceMap = {
+      [Application.SERVICE_TYPES.LANDING]: 'Лендинг',
+      [Application.SERVICE_TYPES.CORPORATE]: 'Корпоративный сайт',
+      [Application.SERVICE_TYPES.ECOMMERCE]: 'Интернет-магазин',
+      [Application.SERVICE_TYPES.WEB_APP]: 'Веб-приложение',
+      [Application.SERVICE_TYPES.REDESIGN]: 'Редизайн',
+      [Application.SERVICE_TYPES.OTHER]: 'Другое'
+    };
+
+    return serviceMap[this.service_type] || this.service_type;
+  }
+
+  // Проверка, является ли заявка активной
+  get isActive() {
+    return ![
+      Application.STATUSES.COMPLETED,
+      Application.STATUSES.CANCELLED
+    ].includes(this.status);
+  }
+
+  // Проверка, можно ли редактировать заявку
+  get isEditable() {
+    return [
+      Application.STATUSES.DRAFT,
+      Application.STATUSES.NEEDS_INFO
+    ].includes(this.status);
+  }
+
+  // Сброс заявки в черновик (если нужно больше информации)
+  async resetToDraft(reason) {
+    if (!this.isEditable) {
+      throw new Error('Невозможно сбросить статус заявки');
+    }
+
+    this.status = Application.STATUSES.DRAFT;
+    if (reason && this.internal_notes) {
+      this.internal_notes += `\n${new Date().toISOString()}: ${reason}`;
+    }
+
+    return await this.save();
+  }
+
+  // Изменение статуса заявки с записью в историю
+  async changeStatus(newStatus, changedBy, options = {}) {
+    if (!this.canChangeStatus(newStatus)) {
+      throw new Error(`Невозможно изменить статус с "${this.statusDisplay}" на "${newStatus}"`);
+    }
+
+    const oldStatus = this.status;
+    this.status = newStatus;
+
+    // Сохраняем заявку
+    await this.save(options);
+
+    // Создаем запись в истории статусов
+    const StatusHistory = require('./StatusHistory');
+    await StatusHistory.create({
+      application_id: this.id,
+      old_status: oldStatus,
+      new_status: newStatus,
+      changed_by: changedBy,
+      comment: options.comment || null,
+      ip_address: options.ipAddress || null,
+      user_agent: options.userAgent || null
+    }, { transaction: options.transaction });
+
+    return this;
+  }
 }
 
 Application.init(
@@ -116,6 +262,10 @@ Application.init(
         'cancelled'
       ),
       defaultValue: 'draft'
+    },
+    internal_notes: {
+      type: DataTypes.TEXT,
+      field: 'internal_notes'
     },
     priority: {
       type: DataTypes.ENUM('low', 'normal', 'high', 'urgent'),

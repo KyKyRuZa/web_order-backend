@@ -6,7 +6,8 @@ const { authMiddleware } = require('../middlewares/auth.middleware');
 const {
   registerValidation,
   loginValidation,
-  updateProfileValidation
+  updateProfileValidation,
+  changePasswordValidation
 } = require('../middlewares/validation.middleware');
 
 // Публичные маршруты
@@ -18,11 +19,14 @@ router.post('/forgot-password', AuthController.forgotPassword);
 router.post('/reset-password/:token', AuthController.resetPassword);
 
 // Защищенные маршруты (требуют аутентификации)
-router.post('/logout', authMiddleware, AuthController.logout);
-router.get('/profile', authMiddleware, AuthController.getProfile);
-router.put('/profile', authMiddleware, updateProfileValidation, UserController.updateProfile);
-router.put('/change-password', authMiddleware, UserController.changePassword);
-router.get('/applications', authMiddleware, UserController.getMyApplications);
-router.delete('/deactivate', authMiddleware, UserController.deactivateAccount);
+router.use(authMiddleware);
+
+router.post('/logout', AuthController.logout);
+router.get('/profile', AuthController.getProfile);
+router.put('/profile', updateProfileValidation, UserController.updateProfile);
+router.put('/change-password', changePasswordValidation, UserController.changePassword);
+router.get('/applications', UserController.getMyApplications);
+router.get('/stats', UserController.getStats);
+router.delete('/deactivate', UserController.deactivateAccount);
 
 module.exports = router;

@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "nodemon src/server.js",
     "start": "node src/server.js",
+    "seed": "node src/config/seed.js",
     "logs": "tail -f logs/combined.log",
     "logs:error": "tail -f logs/error.log",
     "db:create": "sequelize db:create",
@@ -19,7 +20,9 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "axios": "^1.13.2",
     "bcryptjs": "^3.0.3",
+    "compression": "^1.8.1",
     "cors": "^2.8.6",
     "crypto": "^1.0.1",
     "dotenv": "^17.2.3",
@@ -28,6 +31,7 @@
     "express-validator": "^7.3.1",
     "helmet": "^8.1.0",
     "jsonwebtoken": "^9.0.3",
+    "morgan": "^1.10.1",
     "multer": "^2.0.2",
     "pg": "^8.17.2",
     "pg-hstore": "^2.3.4",

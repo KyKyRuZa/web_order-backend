@@ -1,8 +1,8 @@
 const User = require('./User');
 const Application = require('./Application');
 const ApplicationFile = require('./ApplicationFile');
+const StatusHistory = require('./StatusHistory');
 
-// Установка связей
 User.hasMany(Application, {
   foreignKey: 'user_id',
   as: 'applications',
@@ -12,6 +12,22 @@ User.hasMany(Application, {
 Application.belongsTo(User, {
   foreignKey: 'user_id',
   as: 'user'
+});
+
+StatusHistory.belongsTo(Application, {
+  foreignKey: 'application_id',
+  as: 'application'
+});
+
+StatusHistory.belongsTo(User, {
+  foreignKey: 'changed_by',
+  as: 'changer'
+});
+
+Application.hasMany(StatusHistory, {
+  foreignKey: 'application_id',
+  as: 'status_history',
+  onDelete: 'CASCADE'
 });
 
 Application.hasMany(ApplicationFile, {
@@ -49,5 +65,6 @@ User.hasMany(Application, {
 module.exports = {
   User,
   Application,
-  ApplicationFile
+  ApplicationFile,
+  StatusHistory
 };

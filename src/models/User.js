@@ -3,17 +3,44 @@ const sequelize = require('../config/sequelize');
 const bcrypt = require('bcryptjs');
 
 class User extends Model {
+  static ROLES = Object.freeze({
+    CLIENT: 'client',
+    MANAGER: 'manager',
+    ADMIN: 'admin'
+  });
+
   async validatePassword(password) {
     return await bcrypt.compare(password, this.password_hash);
   }
 
   toJSON() {
     const values = Object.assign({}, this.get());
-    delete values.password_hash;
-    delete values.reset_password_token;
-    delete values.reset_password_expires;
-    delete values.email_verification_token;
+    const sensitiveFields = [
+      'password_hash',
+      'reset_password_token',
+      'reset_password_expires',
+      'email_verification_token'
+    ];
+    
+    sensitiveFields.forEach(field => delete values[field]);
     return values;
+  }
+
+  get isManager() {
+    return this.role === User.ROLES.MANAGER || this.role === User.ROLES.ADMIN;
+  }
+
+  get isAdmin() {
+    return this.role === User.ROLES.ADMIN;
+  }
+
+  async updateLastLogin() {
+    this.last_login_at = new Date();
+    return await this.save();
+  }
+
+  get emailVerified() {
+    return this.is_email_verified;
   }
 }
 
@@ -43,9 +70,22 @@ User.init(
         this.setDataValue('email', value.toLowerCase().trim());
       }
     },
+    password: {
+      type: DataTypes.VIRTUAL,
+      allowNull: false,
+      validate: {
+        notEmpty: {
+          msg: 'Пароль обязателен'
+        },
+        len: {
+          args: [6, 100],
+          msg: 'Пароль должен содержать от 6 до 100 символов'
+        }
+      }
+    },
     password_hash: {
       type: DataTypes.STRING(255),
-      allowNull: false,
+      allowNull: true,  
       field: 'password_hash'
     },
     full_name: {
@@ -105,16 +145,21 @@ User.init(
     timestamps: true,
     paranoid: true,
     hooks: {
-      beforeCreate: async (user) => {
-        if (user.password_hash) {
+      // ВАЖНО: Используем beforeValidate вместо beforeCreate/beforeSave
+      beforeValidate: async (user) => {
+        console.log('🔄 beforeValidate hook для:', user.email);
+        console.log('Пароль:', user.password);
+        
+        if (user.password) {
           const salt = await bcrypt.genSalt(10);
-          user.password_hash = await bcrypt.hash(user.password_hash, salt);
+          user.password_hash = await bcrypt.hash(user.password, salt);
+          console.log('✅ Password_hash создан');
         }
       },
       beforeUpdate: async (user) => {
-        if (user.changed('password_hash')) {
+        if (user.changed('password') && user.password) {
           const salt = await bcrypt.genSalt(10);
-          user.password_hash = await bcrypt.hash(user.password_hash, salt);
+          user.password_hash = await bcrypt.hash(user.password, salt);
         }
       }
     },

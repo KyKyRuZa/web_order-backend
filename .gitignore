@@ -18,3 +18,5 @@ coverage/
 # Temp
 tmp/
 temp/
+
+test-results/
