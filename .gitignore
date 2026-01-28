@@ -1,7 +1,8 @@
 # .gitignore
-uploads/
+
 # Dependencies
 node_modules/
+uploads/
 
 # Environment variables
 .env
