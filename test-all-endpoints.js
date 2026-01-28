@@ -317,17 +317,56 @@ class APITester {
         }
       });
 
+      // Получаем текущий статус заявки перед изменением
+      const appDetailsResponse = await this.client.get(`/admin/applications/${appId}`, {
+        headers: { Authorization: `Bearer ${this.tokens.manager}` }
+      });
+
+      if (!appDetailsResponse.data.success) {
+        throw new Error('Failed to get application details for status change test');
+      }
+
+      const currentStatus = appDetailsResponse.data.data.application.status;
+
+      // Определяем допустимый следующий статус в зависимости от текущего
+      let nextStatus;
+      switch(currentStatus) {
+        case 'draft':
+          nextStatus = 'submitted';
+          break;
+        case 'submitted':
+          nextStatus = 'in_review';
+          break;
+        case 'in_review':
+          nextStatus = 'needs_info';
+          break;
+        case 'needs_info':
+          nextStatus = 'in_review';
+          break;
+        case 'estimated':
+          nextStatus = 'approved';
+          break;
+        case 'approved':
+          nextStatus = 'in_progress';
+          break;
+        case 'in_progress':
+          nextStatus = 'completed';
+          break;
+        default:
+          nextStatus = 'draft'; // fallback
+      }
+
       // Изменение статуса заявки
       await this.runTest(`PUT /admin/applications/${appId}/status`, async () => {
         const response = await this.client.put(`/admin/applications/${appId}/status`, {
-          status: 'in_review',
-          comment: 'Статус изменен автоматическим тестом'
+          status: nextStatus,
+          comment: `Статус изменен из ${currentStatus} автоматическим тестом`
         }, {
           headers: { Authorization: `Bearer ${this.tokens.manager}` }
         });
-        
+
         if (!response.data.success) {
-          throw new Error('Failed to update application status');
+          throw new Error(`Failed to update application status from ${currentStatus} to ${nextStatus}: ${response.data.message || ''}`);
         }
       });
 

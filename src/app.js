@@ -6,6 +6,9 @@ const morgan = require('morgan');
 const compression = require('compression');
 const errorHandler = require('./middlewares/errorHandler');
 const logger = require('./config/logger');
+const swaggerUi = require('swagger-ui-express');
+const swaggerJsdoc = require('swagger-jsdoc');
+const swaggerDefinition = require('./swaggerDef');
 
 // Импорт маршрутов
 const authRoutes = require('./routes/auth.routes');
@@ -56,7 +59,7 @@ app.use((req, res, next) => {
 
 // CORS
 app.use(cors({
-  origin: process.env.CLIENT_URL || 'http://localhost:3000',
+  origin: 'http://localhost:3001',
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
@@ -102,36 +105,36 @@ app.use((req, res, next) => {
 // === Лимит запросов ===
 
 // Общий лимит для всех API
-const generalLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 минут
-  max: 100, // лимит запросов с одного IP
-  message: {
-    success: false,
-    message: 'Слишком много запросов с этого IP, попробуйте позже'
-  },
-  standardHeaders: true,
-  legacyHeaders: false,
-  skip: (req, res) => {
-    // Пропускаем рейт-лимит для тестов
-    return req.headers['user-agent'] && req.headers['user-agent'].includes('axios');
-  }
-});
+// const generalLimiter = rateLimit({
+//   windowMs: 15 * 60 * 1000, // 15 минут
+//   max: 100, // лимит запросов с одного IP
+//   message: {
+//     success: false,
+//     message: 'Слишком много запросов с этого IP, попробуйте позже'
+//   },
+//   standardHeaders: true,
+//   legacyHeaders: false,
+//   skip: (req, res) => {
+//     // Пропускаем рейт-лимит для тестов
+//     return req.headers['user-agent'] && req.headers['user-agent'].includes('axios');
+//   }
+// });
 
-// Более строгий лимит для аутентификации
-const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 20,
-  message: {
-    success: false,
-    message: 'Слишком много попыток входа, попробуйте позже'
-  }
-});
+// // Более строгий лимит для аутентификации
+// const authLimiter = rateLimit({
+//   windowMs: 15 * 60 * 1000,
+//   max: 20,
+//   message: {
+//     success: false,
+//     message: 'Слишком много попыток входа, попробуйте позже'
+//   }
+// });
 
-// Применяем лимиты
-app.use('/api', generalLimiter);
-app.use('/api/auth/login', authLimiter);
-app.use('/api/auth/register', authLimiter);
-app.use('/api/auth/forgot-password', authLimiter);
+// // Применяем лимиты
+// app.use('/api', generalLimiter);
+// app.use('/api/auth/login', authLimiter);
+// app.use('/api/auth/register', authLimiter);
+// app.use('/api/auth/forgot-password', authLimiter);
 
 // === Health-check и тестовые маршруты ===
 
@@ -233,6 +236,14 @@ app.use('/api/admin', adminRoutes);
 
 // === Обработка ошибок ===
 app.use(errorHandler);
+
+// === Swagger UI ===
+const options = {
+  swaggerDefinition,
+  apis: ['./src/routes/*.js', './src/controllers/*.js', './src/swaggerDef.js'], // пути к файлам, содержащим аннотации JSDoc
+};
+const specs = swaggerJsdoc(options);
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs));
 
 // === Обработка 404 ===
 app.use((req, res) => {

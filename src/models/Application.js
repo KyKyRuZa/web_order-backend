@@ -11,7 +11,8 @@ class Application extends Model {
     APPROVED: 'approved',
     IN_PROGRESS: 'in_progress',
     COMPLETED: 'completed',
-    CANCELLED: 'cancelled'
+    CANCELLED: 'cancelled',
+    REJECTED: 'rejected'
   });
 
   static SERVICE_TYPES = Object.freeze({
@@ -49,7 +50,8 @@ class Application extends Model {
       [Application.STATUSES.APPROVED]: 'Утверждено',
       [Application.STATUSES.IN_PROGRESS]: 'В работе',
       [Application.STATUSES.COMPLETED]: 'Завершено',
-      [Application.STATUSES.CANCELLED]: 'Отменено'
+      [Application.STATUSES.CANCELLED]: 'Отменено',
+      [Application.STATUSES.REJECTED]: 'Отклонено'
     };
 
     return statusMap[status] || status;

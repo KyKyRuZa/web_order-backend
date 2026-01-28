@@ -199,23 +199,13 @@ class UserController {
   static async deactivateAccount(req, res) {
     try {
       const userId = req.user.id;
-      const { password } = req.body;
 
       const user = await User.findByPk(userId);
-      
+
       if (!user) {
         return res.status(404).json({
           success: false,
           message: 'Пользователь не найден'
-        });
-      }
-
-      // Проверяем пароль
-      const isValidPassword = await user.validatePassword(password);
-      if (!isValidPassword) {
-        return res.status(400).json({
-          success: false,
-          message: 'Неверный пароль'
         });
       }
 

@@ -1,5 +1,5 @@
 # .gitignore
-
+uploads/
 # Dependencies
 node_modules/
 
