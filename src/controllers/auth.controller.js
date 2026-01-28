@@ -17,7 +17,7 @@ class AuthController {
       if (existingUser) {
         return res.status(400).json({
           success: false,
-          message: 'Пользователь с таким email уже существует'
+          message: 'Пользователь с таким email уже зарегистрирован'
         });
       }
 
@@ -84,8 +84,16 @@ class AuthController {
 
         return res.status(400).json({
           success: false,
-          message: 'Ошибка валидации',
+          message: 'Ошибка валидации данных',
           errors
+        });
+      }
+
+      // Обработка специфических ошибок базы данных
+      if (error.name === 'SequelizeUniqueConstraintError') {
+        return res.status(400).json({
+          success: false,
+          message: 'Пользователь с таким email уже зарегистрирован'
         });
       }
 
@@ -108,24 +116,7 @@ class AuthController {
       if (!user) {
         return res.status(401).json({
           success: false,
-          message: 'Неверный email или пароль'
-        });
-      }
-
-      // Проверяем пароль
-      const isValidPassword = await user.validatePassword(password);
-      if (!isValidPassword) {
-        return res.status(401).json({
-          success: false,
-          message: 'Неверный email или пароль'
-        });
-      }
-
-      // Проверяем, подтвержден ли email
-      if (!user.is_email_verified) {
-        return res.status(403).json({
-          success: false,
-          message: 'Email не подтвержден. Проверьте вашу почту.'
+          message: 'Пользователь с таким email не найден'
         });
       }
 
@@ -134,6 +125,23 @@ class AuthController {
         return res.status(403).json({
           success: false,
           message: 'Аккаунт деактивирован'
+        });
+      }
+
+      // Проверяем пароль
+      const isValidPassword = await user.validatePassword(password);
+      if (!isValidPassword) {
+        return res.status(401).json({
+          success: false,
+          message: 'Неверный пароль'
+        });
+      }
+
+      // Проверяем, подтвержден ли email
+      if (!user.is_email_verified) {
+        return res.status(403).json({
+          success: false,
+          message: 'Email не подтвержден. Проверьте вашу почту.'
         });
       }
 
@@ -277,10 +285,21 @@ class AuthController {
     try {
       const { email } = req.body;
 
+      // Находим пользователя по email
       const user = await User.findOne({ where: { email } });
-      
+
+      // Даже если пользователь не найден, генерируем токен и "отправляем" письмо
+      // для предотвращения раскрытия информации о существовании аккаунта
       if (!user) {
-        // Для безопасности не сообщаем, что пользователь не найден
+        // Для безопасности возвращаем успех, даже если пользователь не найден
+        return res.json({
+          success: true,
+          message: 'Если email существует, на него отправлена инструкция по сбросу пароля'
+        });
+      }
+
+      // Проверяем, не деактивирован ли аккаунт
+      if (user.deleted_at) {
         return res.json({
           success: true,
           message: 'Если email существует, на него отправлена инструкция по сбросу пароля'
@@ -330,11 +349,14 @@ class AuthController {
         });
       }
 
-      // Обновляем пароль (хэширование в хуке модели)
-      user.password = password;
+      // Обновляем пароль напрямую с хешированием
+      const bcrypt = require('bcryptjs');
+      const salt = await bcrypt.genSalt(10);
+      const hashedPassword = await bcrypt.hash(password, salt);
+      user.password_hash = hashedPassword;
       user.reset_password_token = null;
       user.reset_password_expires = null;
-      await user.save();
+      await user.save({ fields: ['password_hash', 'reset_password_token', 'reset_password_expires'] });
 
       res.json({
         success: true,

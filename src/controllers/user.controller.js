@@ -107,9 +107,12 @@ class UserController {
         });
       }
 
-      // Обновляем пароль (хэширование в хуке модели)
-      user.password = newPassword;
-      await user.save();
+      // Обновляем пароль напрямую с хешированием
+      const bcrypt = require('bcryptjs');
+      const salt = await bcrypt.genSalt(10);
+      const hashedPassword = await bcrypt.hash(newPassword, salt);
+      user.password_hash = hashedPassword;
+      await user.save({ fields: ['password_hash'] });
 
       logger.info(`Пароль успешно изменен для пользователя: ${userId}`);
       res.json({
