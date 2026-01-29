@@ -131,10 +131,9 @@ const createApplicationValidation = validate([
     .trim()
     .isLength({ max: 100 }).withMessage('Название компании не должно превышать 100 символов'),
   
-  body('budgetRange')
+  body('expectedBudget')
     .optional()
-    .isIn(Object.values(require('../models').Application.BUDGET_RANGES))
-    .withMessage('Некорректный бюджетный диапазон')
+    .isInt({ min: 0 }).withMessage('Ожидаемый бюджет должен быть неотрицательным числом')
 ]);
 
 const updateApplicationStatusValidation = validate([

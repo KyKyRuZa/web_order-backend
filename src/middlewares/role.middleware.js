@@ -21,10 +21,15 @@ const requireRole = (roles) => {
 };
 
 // Специальные middleware для разных ролей
-const requireAdmin = requireRole([User.ROLES.ADMIN]);
-const requireManager = requireRole([User.ROLES.MANAGER, User.ROLES.ADMIN]);
+const requireAdmin = requireRole([User.ROLES.ADMIN, User.ROLES.SUPER_ADMIN]);
+const requireManager = requireRole([
+  User.ROLES.MANAGER,
+  User.ROLES.ADMIN,
+  User.ROLES.SUPER_ADMIN
+]);
 const requireClient = requireRole([User.ROLES.CLIENT]);
-const requireAdminOnly = requireRole([User.ROLES.ADMIN]); // Только админ, не менеджер
+const requireAdminOnly = requireRole([User.ROLES.ADMIN, User.ROLES.SUPER_ADMIN]); // Только админ или суперадмин
+const requireSuperAdmin = requireRole([User.ROLES.SUPER_ADMIN]);
 
 // Проверка, что пользователь не редактирует сам себя
 const notSelfAction = (req, res, next) => {
@@ -57,6 +62,7 @@ module.exports = {
   requireManager,
   requireClient,
   requireAdminOnly,
+  requireSuperAdmin,
   notSelfAction,
   checkApplicationAccess
 };

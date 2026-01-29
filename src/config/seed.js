@@ -33,7 +33,7 @@ async function seedDatabase() {
     try {
       const admin = await User.create({
         email: 'admin@example.com',
-        password: 'admin123',
+        password: 'Admin123!',
         full_name: 'Администратор Системы',
         phone: '+79991234567',
         company_name: 'WebDev Company',
@@ -48,12 +48,12 @@ async function seedDatabase() {
       console.error('❌ Ошибка создания админа:', error.message);
       console.error('Детали:', error.errors || error);
     }
-    
+
     console.log('\n🔍 Пробуем создать менеджера...');
     try {
       const manager = await User.create({
         email: 'manager@example.com',
-        password: 'manager123',
+        password: 'Manager123!',
         full_name: 'Менеджер Проектов',
         phone: '+79998765432',
         company_name: 'WebDev Company',
@@ -67,12 +67,12 @@ async function seedDatabase() {
       console.error('❌ Ошибка создания менеджера:', error.message);
       console.error('Детали:', error.errors || error);
     }
-    
+
     console.log('\n🔍 Пробуем создать клиента...');
     try {
       const client = await User.create({
         email: 'client@example.com',
-        password: 'client123',
+        password: 'Client123!',
         full_name: 'Иван Иванов',
         phone: '+79161234567',
         company_name: 'ТехноКорп',
@@ -159,10 +159,10 @@ async function seedDatabase() {
       
       console.log('\n🎉 Сидинг завершен успешно!');
       console.log('\n👥 Тестовые пользователи:');
-      console.log('Админ: admin@example.com / admin123');
-      console.log('Менеджер: manager@example.com / manager123');
-      console.log('Клиент: client@example.com / client123');
-      
+      console.log('Админ: admin@example.com / Admin123!');
+      console.log('Менеджер: manager@example.com / Manager123!');
+      console.log('Клиент: client@example.com / Client123!');
+
     } catch (error) {
       console.error('❌ Ошибка создания клиента или заявок:', error.message);
       console.error('Детали:', error.errors || error);

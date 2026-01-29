@@ -1,4 +1,3 @@
-// src/server.js
 require('dotenv').config();
 const app = require('./app');
 const sequelize = require('./config/sequelize');
@@ -6,14 +5,11 @@ const logger = require('./config/logger');
 
 const PORT = process.env.PORT || 5000;
 
-// Функция для инициализации базы данных
 const initializeDatabase = async () => {
   try {
-    // Автентификация с БД
     await sequelize.authenticate();
     logger.info('✅ Подключение к базе данных установлено');
 
-    // Синхронизация моделей
     if (process.env.NODE_ENV === 'development') {
       await sequelize.sync({ alter: true });
       logger.info('🔄 База данных синхронизирована (режим разработки)');

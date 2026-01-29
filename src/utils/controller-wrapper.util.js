@@ -1,10 +1,5 @@
 const logger = require('../config/logger');
 
-/**
- * Декоратор для оборачивания асинхронных контроллеров
- * @param {Function} controller - Контроллер для оборачивания
- * @returns {Function} - Обернутый контроллер
- */
 const wrapController = (controller) => {
   return async (req, res, next) => {
     try {
@@ -87,13 +82,6 @@ const wrapController = (controller) => {
   };
 };
 
-/**
- * Функция для создания стандартного ответа об успехе
- * @param {Object} res - Объект ответа
- * @param {any} data - Данные для ответа
- * @param {string} message - Сообщение об успехе
- * @param {number} statusCode - Код статуса (по умолчанию 200)
- */
 const successResponse = (res, data, message = 'Операция выполнена успешно', statusCode = 200) => {
   const response = {
     success: true,
@@ -107,13 +95,6 @@ const successResponse = (res, data, message = 'Операция выполнен
   return res.status(statusCode).json(response);
 };
 
-/**
- * Функция для создания стандартного ответа об ошибке
- * @param {Object} res - Объект ответа
- * @param {string} message - Сообщение об ошибке
- * @param {number} statusCode - Код статуса (по умолчанию 500)
- * @param {Array} errors - Массив ошибок валидации
- */
 const errorResponse = (res, message = 'Произошла ошибка', statusCode = 500, errors = null) => {
   const response = {
     success: false,

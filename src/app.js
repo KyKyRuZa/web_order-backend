@@ -14,6 +14,8 @@ const swaggerDefinition = require('./swaggerDef');
 const authRoutes = require('./routes/auth.routes');
 const applicationRoutes = require('./routes/application.routes');
 const adminRoutes = require('./routes/admin.routes');
+const noteRoutes = require('./routes/notes.routes');
+const auditRoutes = require('./routes/audit.routes');
 
 const app = express();
 
@@ -59,7 +61,7 @@ app.use((req, res, next) => {
 
 // CORS
 app.use(cors({
-  origin: 'http://localhost:3002',
+  origin: 'http://localhost:3000',
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
@@ -118,7 +120,7 @@ app.use((req, res, next) => {
 //     // Пропускаем рейт-лимит для тестов
 //     return req.headers['user-agent'] && req.headers['user-agent'].includes('axios');
 //   }
-// });
+// });  
 
 // // Более строгий лимит для аутентификации
 // const authLimiter = rateLimit({
@@ -150,15 +152,10 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// Подробный health-check с проверкой БД
 app.get('/api/health/detailed', async (req, res, next) => {
   try {
     const sequelize = require('./config/sequelize');
-    
-    // Проверяем подключение к БД
     await sequelize.authenticate();
-    
-    // Проверяем несколько ключевых таблиц
     const { User, Application } = require('./models');
     
     const [userCount, applicationCount] = await Promise.all([
@@ -189,7 +186,6 @@ app.get('/api/health/detailed', async (req, res, next) => {
   }
 });
 
-// Тестовый маршрут для проверки БД
 app.get('/api/test-db', async (req, res, next) => {
   try {
     const sequelize = require('./config/sequelize');
@@ -209,30 +205,12 @@ app.get('/api/test-db', async (req, res, next) => {
   }
 });
 
-// Маршрут для получения информации о версии API
-app.get('/api/version', (req, res) => {
-  res.json({
-    success: true,
-    data: {
-      api: {
-        name: 'WebDev Orders API',
-        version: process.env.npm_package_version || '1.0.0',
-        description: 'API для системы заказов веб-разработки'
-      },
-      endpoints: {
-        auth: '/api/auth',
-        applications: '/api/applications',
-        admin: '/api/admin'
-      },
-      documentation: process.env.API_DOCS_URL || 'https://docs.example.com'
-    }
-  });
-});
-
 // === Основные маршруты API ===
 app.use('/api/auth', authRoutes);
 app.use('/api/applications', applicationRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/notes', noteRoutes);
+app.use('/api/audit', auditRoutes);
 
 // === Обработка ошибок ===
 app.use(errorHandler);

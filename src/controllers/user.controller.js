@@ -1,58 +1,43 @@
-const { User, Application } = require('../models');
+const { User, Application, AuditLog } = require('../models');
 const { Op } = require('sequelize');
 const { wrapController } = require('../utils/controller-wrapper.util');
+const UserService = require('../services/user.service');
 
 class UserController {
   static async updateProfile(req, res) {
     try {
-      const { fullName, phone, companyName } = req.body;
       const userId = req.user.id;
+      const updateData = req.body;
 
-      const user = await User.findByPk(userId);
-      
-      if (!user) {
-        return res.status(404).json({
+      // Добавим информацию о запросе
+      updateData.req = req;
+
+      const result = await UserService.updateProfile(userId, updateData);
+
+      if (result.error) {
+        return res.status(400).json({
           success: false,
-          message: 'Пользователь не найден'
+          message: result.error
         });
       }
 
-      // Обновляем только переданные поля
-      const updateData = {};
-      if (fullName !== undefined) updateData.full_name = fullName;
-      if (phone !== undefined) updateData.phone = phone;
-      if (companyName !== undefined) updateData.company_name = companyName;
-
-      await user.update(updateData);
-
-      res.json({
-        success: true,
-        message: 'Профиль успешно обновлен',
-        data: {
-          user: {
-            ...user.toJSON(),
-            isManager: user.isManager,
-            isAdmin: user.isAdmin,
-            emailVerified: user.emailVerified
-          }
-        }
-      });
+      res.json(result);
     } catch (error) {
       console.error('Update profile error:', error);
-      
+
       if (error.name === 'SequelizeValidationError') {
         const errors = error.errors.map(e => ({
           field: e.path,
           message: e.message
         }));
-        
+
         return res.status(400).json({
           success: false,
           message: 'Ошибка валидации',
           errors
         });
       }
-      
+
       res.status(500).json({
         success: false,
         message: 'Ошибка обновления профиля'
@@ -147,49 +132,22 @@ class UserController {
       const userId = req.user.id;
       const { status, page = 1, limit = 10 } = req.query;
 
-      const where = { user_id: userId };
-      
-      if (status) {
-        where.status = status;
+      const filters = {
+        status,
+        page,
+        limit
+      };
+
+      const result = await UserService.getUserApplications(userId, filters);
+
+      if (result.error) {
+        return res.status(404).json({
+          success: false,
+          message: result.error
+        });
       }
 
-      const offset = (parseInt(page) - 1) * parseInt(limit);
-
-      const { count, rows: applications } = await Application.findAndCountAll({
-        where,
-        limit: parseInt(limit),
-        offset: parseInt(offset),
-        order: [['created_at', 'DESC']],
-        include: [
-          {
-            model: User,
-            as: 'assignee',
-            attributes: ['id', 'full_name', 'email']
-          }
-        ]
-      });
-
-      // Добавляем display значения
-      const applicationsWithDisplay = applications.map(app => ({
-        ...app.toJSON(),
-        statusDisplay: app.statusDisplay,
-        serviceTypeDisplay: app.serviceTypeDisplay,
-        isActive: app.isActive,
-        isEditable: app.isEditable
-      }));
-
-      res.json({
-        success: true,
-        data: {
-          applications: applicationsWithDisplay,
-          pagination: {
-            total: count,
-            page: parseInt(page),
-            limit: parseInt(limit),
-            pages: Math.ceil(count / limit)
-          }
-        }
-      });
+      res.json(result);
     } catch (error) {
       console.error('Get applications error:', error);
       res.status(500).json({
@@ -203,22 +161,16 @@ class UserController {
     try {
       const userId = req.user.id;
 
-      const user = await User.findByPk(userId);
+      const result = await UserService.deactivateAccount(userId, req);
 
-      if (!user) {
+      if (result.error) {
         return res.status(404).json({
           success: false,
-          message: 'Пользователь не найден'
+          message: result.error
         });
       }
 
-      // Деактивируем аккаунт (soft delete)
-      await user.destroy();
-
-      res.json({
-        success: true,
-        message: 'Аккаунт успешно деактивирован'
-      });
+      res.json(result);
     } catch (error) {
       console.error('Deactivate account error:', error);
       res.status(500).json({
@@ -243,6 +195,29 @@ class UserController {
       res.status(500).json({
         success: false,
         message: 'Ошибка получения статистики'
+      });
+    }
+  }
+
+  static async getProfile(req, res) {
+    try {
+      const userId = req.user.id;
+
+      const result = await UserService.getProfile(userId);
+
+      if (!result) {
+        return res.status(404).json({
+          success: false,
+          message: 'Пользователь не найден'
+        });
+      }
+
+      res.json(result);
+    } catch (error) {
+      console.error('Get profile error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Ошибка получения профиля'
       });
     }
   }

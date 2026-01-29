@@ -1,8 +1,11 @@
 const User = require('./User');
 const Application = require('./Application');
 const ApplicationFile = require('./ApplicationFile');
+const ApplicationNote = require('./ApplicationNote');
 const StatusHistory = require('./StatusHistory');
+const AuditLog = require('./AuditLog');
 
+// Отношения пользователей и заявок
 User.hasMany(Application, {
   foreignKey: 'user_id',
   as: 'applications',
@@ -14,6 +17,7 @@ Application.belongsTo(User, {
   as: 'user'
 });
 
+// Отношения истории статусов
 StatusHistory.belongsTo(Application, {
   foreignKey: 'application_id',
   as: 'application'
@@ -30,6 +34,7 @@ Application.hasMany(StatusHistory, {
   onDelete: 'CASCADE'
 });
 
+// Отношения файлов заявок
 Application.hasMany(ApplicationFile, {
   foreignKey: 'application_id',
   as: 'files',
@@ -62,9 +67,44 @@ User.hasMany(Application, {
   as: 'assigned_applications'
 });
 
+// Отношения для заметок к заявкам
+Application.hasMany(ApplicationNote, {
+  foreignKey: 'application_id',
+  as: 'notes',
+  onDelete: 'CASCADE'
+});
+
+ApplicationNote.belongsTo(Application, {
+  foreignKey: 'application_id',
+  as: 'application'
+});
+
+ApplicationNote.belongsTo(User, {
+  foreignKey: 'author_id',
+  as: 'author'
+});
+
+User.hasMany(ApplicationNote, {
+  foreignKey: 'author_id',
+  as: 'authored_notes'
+});
+
+// Отношения для аудита
+AuditLog.belongsTo(User, {
+  foreignKey: 'user_id',
+  as: 'user'
+});
+
+User.hasMany(AuditLog, {
+  foreignKey: 'user_id',
+  as: 'auditLogs'
+});
+
 module.exports = {
   User,
   Application,
   ApplicationFile,
-  StatusHistory
+  ApplicationNote,
+  StatusHistory,
+  AuditLog
 };

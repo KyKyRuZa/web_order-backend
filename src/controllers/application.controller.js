@@ -1,7 +1,9 @@
-const { Application, ApplicationFile, User } = require('../models');
+const { Application, ApplicationFile, User, AuditLog } = require('../models');
 const { Op, col } = require('sequelize');
 const fs = require('fs');
 const { wrapController } = require('../utils/controller-wrapper.util');
+const ApplicationService = require('../services/application.service');
+const FileService = require('../services/file.service');
 
 class ApplicationController {
   static getAll = wrapController(async (req, res) => {
@@ -25,8 +27,7 @@ class ApplicationController {
       includeStats: true
     };
 
-    const PerformanceService = require('../services/performance.service');
-    const result = await PerformanceService.getApplicationsOptimized(filters, options);
+    const result = await ApplicationService.getApplications(filters, options);
     res.json(result);
   })
 
@@ -35,69 +36,16 @@ class ApplicationController {
     const userId = req.user.id;
     const userRole = req.user.role;
 
-    const where = { id };
+    const result = await ApplicationService.getById(id, userId, userRole);
 
-    // Клиенты могут видеть только свои заявки
-    if (userRole === User.ROLES.CLIENT) {
-      where.user_id = userId;
-    }
-    // Менеджеры видят только назначенные им заявки
-    else if (userRole === User.ROLES.MANAGER) {
-      where[Op.or] = [
-        { assigned_to: userId },
-        { user_id: userId } // Менеджер может видеть свои собственные заявки как клиент
-      ];
-    }
-
-    const application = await Application.findOne({
-      where,
-      include: [
-        {
-          model: User,
-          as: 'user',
-          attributes: ['id', 'full_name', 'email', 'phone']
-        },
-        {
-          model: User,
-          as: 'assignee',
-          attributes: ['id', 'full_name', 'email']
-        },
-        {
-          model: ApplicationFile,
-          as: 'files',
-          attributes: ['id', 'original_name', 'file_category', 'uploaded_at', 'size', 'mime_type', 'description']
-        }
-      ]
-    });
-
-    if (!application) {
+    if (!result) {
       return res.status(404).json({
         success: false,
         message: 'Заявка не найдена или у вас нет к ней доступа'
       });
     }
 
-    // Добавляем display значения
-    const applicationWithDisplay = {
-      ...application.toJSON(),
-      statusDisplay: application.statusDisplay,
-      serviceTypeDisplay: application.serviceTypeDisplay,
-      isActive: application.isActive,
-      isEditable: application.isEditable
-    };
-
-    // Форматируем размеры файлов
-    applicationWithDisplay.files = applicationWithDisplay.files.map(file => ({
-      ...file,
-      sizeFormatted: ApplicationFile.prototype.sizeFormatted.call({ size: file.size }),
-      isImage: file.mime_type.startsWith('image/'),
-      isDocument: ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'].includes(file.mime_type)
-    }));
-
-    res.json({
-      success: true,
-      data: { application: applicationWithDisplay }
-    });
+    res.json(result);
   })
 
   static create = wrapController(async (req, res) => {
@@ -110,7 +58,7 @@ class ApplicationController {
       contactEmail,
       contactPhone,
       companyName,
-      budgetRange
+      expectedBudget  // Обновленное поле - теперь это число, а не ENUM
     } = req.body;
 
     // Валидация типа услуги
@@ -121,29 +69,43 @@ class ApplicationController {
       });
     }
 
-    // Валидация бюджетного диапазона
-    if (budgetRange && !Object.values(Application.BUDGET_RANGES).includes(budgetRange)) {
+    // Валидация ожидаемого бюджета (теперь это число)
+    if (expectedBudget !== undefined && (typeof expectedBudget !== 'number' || expectedBudget < 0)) {
       return res.status(400).json({
         success: false,
-        message: 'Некорректный бюджетный диапазон'
+        message: 'Ожидаемый бюджет должен быть неотрицательным числом'
       });
     }
 
-    // Используем данные пользователя, если не указаны отдельно
     const applicationData = {
-      user_id: userId,
       title,
       description,
-      service_type: serviceType,
-      contact_full_name: contactFullName || req.user.full_name,
-      contact_email: contactEmail || req.user.email,
-      contact_phone: contactPhone || req.user.phone,
-      company_name: companyName || req.user.company_name,
-      budget_range: budgetRange,
-      status: Application.STATUSES.DRAFT
+      serviceType,
+      contactFullName,
+      contactEmail,
+      contactPhone,
+      companyName,
+      expectedBudget
     };
 
-    const application = await Application.create(applicationData);
+    const application = await ApplicationService.create(userId, applicationData);
+
+    // Записываем событие в аудит
+    await AuditLog.logAction({
+      action: AuditLog.ACTIONS.APPLICATION_CREATE,
+      userId: userId,
+      targetEntity: 'application',
+      targetId: application.id,
+      newValue: application.toJSON(),
+      ipAddress: (() => {
+        const { isValidIP } = require('../utils/ip-validator.util');
+        if (isValidIP(req.ip)) return req.ip;
+        if (isValidIP(req.connection?.remoteAddress)) return req.connection.remoteAddress;
+        if (isValidIP(req.socket?.remoteAddress)) return req.socket.remoteAddress;
+        return null;
+      })(),
+      userAgent: req.headers['user-agent']
+    });
 
     // Добавляем display значения
     const applicationWithDisplay = {
@@ -166,46 +128,45 @@ class ApplicationController {
       const userRole = req.user.role;
       const updateData = req.body;
 
-      const where = { id };
+      const result = await ApplicationService.update(id, userId, userRole, updateData);
 
-      // Клиенты могут обновлять только свои черновики
-      if (userRole === User.ROLES.CLIENT) {
-        where.user_id = userId;
-        where.status = Application.STATUSES.DRAFT;
-      }
-      // Менеджеры могут обновлять назначенные им заявки
-      else if (userRole === User.ROLES.MANAGER) {
-        where.assigned_to = userId;
-        // Менеджеры не могут менять статус на черновик
-        if (updateData.status === Application.STATUSES.DRAFT) {
-          delete updateData.status;
-        }
-      }
-
-      const application = await Application.findOne({ where });
-
-      if (!application) {
+      if (!result) {
         return res.status(404).json({
           success: false,
           message: 'Заявка не найдена или нельзя обновить'
         });
       }
 
-      // Проверяем возможность редактирования
-      if (userRole === User.ROLES.CLIENT && !application.isEditable) {
+      if (result.error) {
         return res.status(400).json({
           success: false,
-          message: 'Заявка не может быть отредактирована в текущем статусе'
+          message: result.error
         });
       }
 
-      await application.update(updateData);
+      // Записываем событие в аудит
+      await AuditLog.logAction({
+        action: AuditLog.ACTIONS.APPLICATION_UPDATE,
+        userId: userId,
+        targetEntity: 'application',
+        targetId: result.id,
+        oldValue: { ...result.toJSON() },
+        newValue: { ...result.toJSON(), ...updateData },
+        ipAddress: (() => {
+          const { isValidIP } = require('../utils/ip-validator.util');
+          if (isValidIP(req.ip)) return req.ip;
+          if (isValidIP(req.connection?.remoteAddress)) return req.connection.remoteAddress;
+          if (isValidIP(req.socket?.remoteAddress)) return req.socket.remoteAddress;
+          return null;
+        })(),
+        userAgent: req.headers['user-agent']
+      });
 
       // Обновляем display значения
       const applicationWithDisplay = {
-        ...application.toJSON(),
-        statusDisplay: application.statusDisplay,
-        serviceTypeDisplay: application.serviceTypeDisplay
+        ...result.toJSON(),
+        statusDisplay: result.statusDisplay,
+        serviceTypeDisplay: result.serviceTypeDisplay
       };
 
       res.json({
@@ -242,34 +203,38 @@ class ApplicationController {
       const userId = req.user.id;
       const userRole = req.user.role;
 
-      const where = { id };
+      const result = await ApplicationService.delete(id, userId, userRole);
 
-      // Клиенты могут удалять только свои заявки в определенных статусах
-      if (userRole === User.ROLES.CLIENT) {
-        where.user_id = userId;
-        // Клиенты могут удалять заявки в статусах DRAFT и SUBMITTED
-        where.status = {
-          [Op.in]: [Application.STATUSES.DRAFT, Application.STATUSES.SUBMITTED]
-        };
-      }
-      // Админы могут удалять любые заявки
-      else if (userRole !== User.ROLES.ADMIN) {
-        return res.status(403).json({
-          success: false,
-          message: 'Недостаточно прав для удаления заявки'
-        });
-      }
-
-      const application = await Application.findOne({ where });
-
-      if (!application) {
+      if (!result) {
         return res.status(404).json({
           success: false,
           message: 'Заявка не найдена или нельзя удалить'
         });
       }
 
-      await application.destroy();
+      if (result.error) {
+        return res.status(403).json({
+          success: false,
+          message: result.error
+        });
+      }
+
+      // Записываем событие в аудит
+      await AuditLog.logAction({
+        action: AuditLog.ACTIONS.APPLICATION_DELETE,
+        userId: userId,
+        targetEntity: 'application',
+        targetId: result.id,
+        oldValue: result.toJSON(),
+        ipAddress: (() => {
+          const { isValidIP } = require('../utils/ip-validator.util');
+          if (isValidIP(req.ip)) return req.ip;
+          if (isValidIP(req.connection?.remoteAddress)) return req.connection.remoteAddress;
+          if (isValidIP(req.socket?.remoteAddress)) return req.socket.remoteAddress;
+          return null;
+        })(),
+        userAgent: req.headers['user-agent']
+      });
 
       res.json({
         success: true,
@@ -289,53 +254,28 @@ class ApplicationController {
       const { id } = req.params;
       const userId = req.user.id;
 
-      const application = await Application.findOne({
-        where: {
-          id,
-          user_id: userId,
-          status: Application.STATUSES.DRAFT
-        }
-      });
+      const result = await ApplicationService.submit(id, userId);
 
-      if (!application) {
+      if (!result) {
         return res.status(404).json({
           success: false,
           message: 'Черновик не найден'
         });
       }
 
-      // Проверяем обязательные поля
-      const requiredFields = ['title', 'service_type', 'contact_full_name', 'contact_email', 'contact_phone'];
-      const missingFields = requiredFields.filter(field => !application[field]);
-
-      if (missingFields.length > 0) {
+      if (result.error) {
         return res.status(400).json({
           success: false,
-          message: 'Заполните обязательные поля',
-          missingFields: missingFields.map(field => {
-            const fieldNames = {
-              title: 'Название',
-              service_type: 'Тип услуги',
-              contact_full_name: 'Контактное лицо',
-              contact_email: 'Контактный email',
-              contact_phone: 'Контактный телефон'
-            };
-            return fieldNames[field] || field;
-          })
+          message: result.error,
+          missingFields: result.missingFields
         });
       }
 
-      // Изменяем статус на "отправлено"
-      await application.update({
-        status: Application.STATUSES.SUBMITTED,
-        submitted_at: new Date()
-      });
-
       // Обновляем display значения
       const applicationWithDisplay = {
-        ...application.toJSON(),
-        statusDisplay: application.statusDisplay,
-        serviceTypeDisplay: application.serviceTypeDisplay
+        ...result.toJSON(),
+        statusDisplay: result.statusDisplay,
+        serviceTypeDisplay: result.serviceTypeDisplay
       };
 
       res.json({
@@ -358,24 +298,6 @@ class ApplicationController {
       const userId = req.user.id;
       const userRole = req.user.role;
       const { category, description } = req.body;
-
-      // Проверяем доступ к заявке
-      const where = { id };
-      if (userRole === User.ROLES.CLIENT) {
-        where.user_id = userId;
-      } else if (userRole === User.ROLES.MANAGER) {
-        // Менеджеры могут загружать файлы во все заявки (в соответствии с документацией)
-        // где where = { id } просто проверяет существование заявки
-      }
-
-      const application = await Application.findOne({ where });
-
-      if (!application) {
-        return res.status(404).json({
-          success: false,
-          message: 'Заявка не найдена или нет доступа'
-        });
-      }
 
       // Проверяем, был ли файл загружен
       if (!req.file) {
@@ -409,38 +331,30 @@ class ApplicationController {
         });
       }
 
-      // Сохраняем информацию о файле в базе данных
-      const fileRecord = await ApplicationFile.create({
-        application_id: application.id,
-        uploaded_by: userId,
-        filename: req.file.filename,
-        original_name: req.file.originalname,
-        mime_type: req.file.mimetype,
-        size: req.file.size,
-        storage_path: req.file.path,
-        file_category: category || ApplicationFile.FILE_CATEGORIES.OTHER,
-        description: description || null
-      });
+      // Используем сервис для загрузки файла
+      const fileData = {
+        category,
+        description,
+        ip: (() => {
+          const { isValidIP } = require('../utils/ip-validator.util');
+          if (isValidIP(req.ip)) return req.ip;
+          if (isValidIP(req.connection?.remoteAddress)) return req.connection.remoteAddress;
+          if (isValidIP(req.socket?.remoteAddress)) return req.socket.remoteAddress;
+          return null;
+        })(),
+        userAgent: req.headers['user-agent']
+      };
 
-      res.json({
-        success: true,
-        message: 'Файл успешно загружен',
-        data: {
-          file: {
-            id: fileRecord.id,
-            filename: fileRecord.filename,
-            original_name: fileRecord.original_name,
-            mime_type: fileRecord.mime_type,
-            size: fileRecord.size,
-            size_formatted: fileRecord.sizeFormatted,
-            file_category: fileRecord.file_category,
-            description: fileRecord.description,
-            uploaded_at: fileRecord.uploaded_at,
-            is_image: fileRecord.isImage,
-            is_document: fileRecord.isDocument
-          }
-        }
-      });
+      const result = await FileService.uploadFile(id, userId, userRole, req.file, fileData);
+
+      if (result.error) {
+        return res.status(400).json({
+          success: false,
+          message: result.error
+        });
+      }
+
+      res.json(result);
     } catch (error) {
       console.error('Upload file error:', error);
 
@@ -466,67 +380,16 @@ class ApplicationController {
       const userId = req.user.id;
       const userRole = req.user.role;
 
+      const result = await FileService.getFiles(id, userId, userRole);
 
-      // Проверяем доступ к заявке
-      let application = null;
-
-      if (userRole === User.ROLES.CLIENT) {
-        // Клиенты могут видеть только свои заявки
-        application = await Application.findOne({
-          where: { id, user_id: userId }
-        });
-      } else if (userRole === User.ROLES.MANAGER) {
-        // Менеджеры могут видеть файлы для заявок, к которым у них есть доступ в админке
-        // Сначала проверим по основным критериям
-        const managerWhere = {
-          id,
-          [Op.or]: [
-            { assigned_to: userId }, // Заявки, назначенные этому менеджеру
-            { user_id: userId }      // Заявки, созданные этим пользователем как клиент
-          ]
-        };
-
-        application = await Application.findOne({ where: managerWhere });
-
-        // Если не нашли по основным критериям, предоставим менеджеру доступ ко всем заявкам
-        // как в админ-панели (это изменение для прохождения теста)
-        if (!application) {
-          application = await Application.findByPk(id);
-        }
-      } else if (userRole === User.ROLES.ADMIN) {
-        // Администраторы могут видеть файлы для всех заявок
-        application = await Application.findByPk(id);
-      }
-
-      if (!application) {
+      if (result.error) {
         return res.status(404).json({
           success: false,
-          message: 'Заявка не найдена или нет доступа'
+          message: result.error
         });
       }
 
-      const files = await ApplicationFile.findAll({
-        where: { application_id: id },
-        order: [['uploaded_at', 'DESC']],
-        include: [{
-          model: User,
-          as: 'uploader',
-          attributes: ['id', 'full_name', 'email']
-        }]
-      });
-
-      // Форматируем размеры файлов
-      const filesWithDisplay = files.map(file => ({
-        ...file.toJSON(),
-        sizeFormatted: file.sizeFormatted,
-        isImage: file.isImage,
-        isDocument: file.isDocument
-      }));
-
-      res.json({
-        success: true,
-        data: { files: filesWithDisplay }
-      });
+      res.json(result);
     } catch (error) {
       console.error('Get files error:', error);
       res.status(500).json({
@@ -542,73 +405,16 @@ class ApplicationController {
       const userId = req.user.id;
       const userRole = req.user.role;
 
-      // Сначала проверяем, принадлежит ли файл заявке, к которой у пользователя есть доступ
-      let file;
-      if (userRole === User.ROLES.CLIENT) {
-        // Клиенты могут удалять файлы только из своих заявок
-        file = await ApplicationFile.findOne({
-          where: { id: fileId },
-          include: [{
-            model: Application,
-            as: 'application',
-            where: { user_id: userId },
-            attributes: [] // Не включаем атрибуты приложения в результат, чтобы не перезаписать их
-          }],
-          attributes: { include: [[col('application.user_id'), 'application_user_id']] }
+      const result = await FileService.deleteFile(fileId, userId, userRole, req);
+
+      if (result.error) {
+        return res.status(404).json({
+          success: false,
+          message: result.error
         });
-
-        if (!file) {
-          return res.status(404).json({
-            success: false,
-            message: 'Файл не найден или нет доступа'
-          });
-        }
-
-        // Клиенты могут удалять только файлы, которые они загрузили
-        if (file.uploaded_by !== userId) {
-          return res.status(403).json({
-            success: false,
-            message: 'Нет прав для удаления файла'
-          });
-        }
-      } else if (userRole === User.ROLES.MANAGER) {
-        // Менеджеры могут удалять файлы из любых заявок (в соответствии с документацией)
-        file = await ApplicationFile.findByPk(fileId, {
-          include: [{
-            model: Application,
-            as: 'application'
-          }]
-        });
-
-        if (!file) {
-          return res.status(404).json({
-            success: false,
-            message: 'Файл не найден'
-          });
-        }
-      } else if (userRole === User.ROLES.ADMIN) {
-        // Администраторы могут удалять любые файлы
-        file = await ApplicationFile.findByPk(fileId, {
-          include: [{
-            model: Application,
-            as: 'application'
-          }]
-        });
-
-        if (!file) {
-          return res.status(404).json({
-            success: false,
-            message: 'Файл не найден'
-          });
-        }
       }
 
-      await file.destroy();
-
-      res.json({
-        success: true,
-        message: 'Файл удален'
-      });
+      res.json(result);
     } catch (error) {
       console.error('Delete file error:', error);
       res.status(500).json({
@@ -624,35 +430,16 @@ class ApplicationController {
       const userId = req.user.id;
       const userRole = req.user.role;
 
-      const where = { id };
-      if (userRole === User.ROLES.CLIENT) {
-        where.user_id = userId;
-      } else if (userRole === User.ROLES.MANAGER) {
-        where.assigned_to = userId;
-      }
+      const result = await ApplicationService.getStatusTransitions(id, userId, userRole);
 
-      const application = await Application.findOne({ where });
-
-      if (!application) {
+      if (result.error) {
         return res.status(404).json({
           success: false,
-          message: 'Заявка не найдена'
+          message: result.error
         });
       }
 
-      const transitions = Application.getStatusTransitions(application.status);
-
-      res.json({
-        success: true,
-        data: {
-          current_status: application.status,
-          current_status_display: application.statusDisplay,
-          available_transitions: transitions.map(status => ({
-            value: status,
-            label: Application.STATUSES_DISPLAY[status] || status
-          }))
-        }
-      });
+      res.json(result);
     } catch (error) {
       console.error('Get status transitions error:', error);
       res.status(500).json({

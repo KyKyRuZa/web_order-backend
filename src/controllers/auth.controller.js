@@ -1,13 +1,13 @@
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
-const { User } = require('../models');
+const { User, AuditLog } = require('../models');
 const JWTService = require('../services/jwt.service');
 const EmailService = require('../services/email.service');
 const logger = require('../config/logger');
 const { wrapController } = require('../utils/controller-wrapper.util');
+const UserService = require('../services/user.service');
 
 class AuthController {
-  // auth.controller.js - исправленный метод register
   static async register(req, res) {
     try {
       const { email, password, fullName, phone, companyName } = req.body;
@@ -163,6 +163,7 @@ class AuthController {
             ...userResponse,
             isManager: user.isManager,
             isAdmin: user.isAdmin,
+            isSuperAdmin: user.isSuperAdmin,
             emailVerified: user.emailVerified
           },
           tokens: {
@@ -180,7 +181,6 @@ class AuthController {
       });
     }
   }
-
 
   static async logout(req, res) {
     try {
@@ -210,7 +210,7 @@ class AuthController {
       }
 
       const decoded = JWTService.verifyRefreshToken(refreshToken);
-      
+
       if (!decoded || decoded.type !== 'refresh') {
         return res.status(401).json({
           success: false,
@@ -220,7 +220,7 @@ class AuthController {
 
       // Находим пользователя
       const user = await User.findByPk(decoded.id);
-      
+
       if (!user || user.deleted_at) {
         return res.status(404).json({
           success: false,
@@ -373,22 +373,14 @@ class AuthController {
 
   static async getProfile(req, res) {
     try {
-      const userId = req.user.id;
+      const result = await UserService.getProfile(req.user.id);
 
-
-      const userWithFlags = {
-        ...req.user.toJSON(),
-        isManager: req.user.isManager,
-        isAdmin: req.user.isAdmin,
-        emailVerified: req.user.emailVerified
-      };
-
-      const result = {
-        success: true,
-        data: {
-          user: userWithFlags
-        }
-      };
+      if (!result) {
+        return res.status(404).json({
+          success: false,
+          message: 'Пользователь не найден'
+        });
+      }
 
       res.json(result);
     } catch (error) {
