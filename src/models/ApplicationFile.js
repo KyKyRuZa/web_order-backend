@@ -52,11 +52,6 @@ class ApplicationFile extends Model {
     return `${Math.round(size * 100) / 100} ${units[unitIndex]}`;
   }
 
-  // Проверка, является ли файл изображением
-  get isImage() {
-    return this.mime_type.startsWith('image/');
-  }
-
   // Проверка, является ли файл документом
   get isDocument() {
     return [

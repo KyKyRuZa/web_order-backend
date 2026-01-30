@@ -22,6 +22,7 @@ class AuditLog extends Model {
     NOTE_CREATE: 'note_create',
     NOTE_UPDATE: 'note_update',
     NOTE_DELETE: 'note_delete',
+    NOTE_PIN_TOGGLE: 'note_pin_toggle',
     
     // Файлы
     FILE_UPLOAD: 'file_upload',
@@ -63,6 +64,7 @@ class AuditLog extends Model {
       [AuditLog.ACTIONS.NOTE_CREATE]: 'Создание заметки',
       [AuditLog.ACTIONS.NOTE_UPDATE]: 'Обновление заметки',
       [AuditLog.ACTIONS.NOTE_DELETE]: 'Удаление заметки',
+      [AuditLog.ACTIONS.NOTE_PIN_TOGGLE]: 'Переключение статуса закрепления заметки',
       [AuditLog.ACTIONS.FILE_UPLOAD]: 'Загрузка файла',
       [AuditLog.ACTIONS.FILE_DELETE]: 'Удаление файла',
       [AuditLog.ACTIONS.LOGIN]: 'Вход в систему',

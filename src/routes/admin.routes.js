@@ -9,9 +9,6 @@ const {
   validate
 } = require('../middlewares/validation.middleware');
 
-// Все маршруты требуют аутентификации
-router.use(authMiddleware);
-
 /**
  * @swagger
  * /admin/applications:
@@ -19,13 +16,13 @@ router.use(authMiddleware);
  *     summary: Получение списка заявок с фильтрацией
  *     tags: [Admin]
  *     security:
- *       - BearerAuth: []
+ *       - bearerAuth: []
  *     parameters:
  *       - in: query
  *         name: status
  *         schema:
  *           type: string
- *         description: Фильтр по статусу
+ *         description: Фильтр по статусу заявки
  *       - in: query
  *         name: service_type
  *         schema:
@@ -40,24 +37,7 @@ router.use(authMiddleware);
  *         name: assigned_to
  *         schema:
  *           type: string
- *         description: Фильтр по назначеному менеджеру
- *       - in: query
- *         name: date_from
- *         schema:
- *           type: string
- *           format: date
- *         description: Фильтр по дате начала
- *       - in: query
- *         name: date_to
- *         schema:
- *           type: string
- *           format: date
- *         description: Фильтр по дате окончания
- *       - in: query
- *         name: search
- *         schema:
- *           type: string
- *         description: Поиск по ключевым словам
+ *         description: Фильтр по назначенным менеджерам
  *       - in: query
  *         name: page
  *         schema:
@@ -86,8 +66,7 @@ router.use(authMiddleware);
  *                       items:
  *                         $ref: '#/components/schemas/Application'
  *                     pagination:
- *                       type: object
- *                       description: Информация о пагинации
+ *                       $ref: '#/components/schemas/Pagination'
  */
 
 /**
@@ -97,7 +76,7 @@ router.use(authMiddleware);
  *     summary: Получение детальной информации о заявке
  *     tags: [Admin]
  *     security:
- *       - BearerAuth: []
+ *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: id
@@ -120,6 +99,8 @@ router.use(authMiddleware);
  *                   properties:
  *                     application:
  *                       $ref: '#/components/schemas/Application'
+ *       404:
+ *         description: Заявка не найдена
  */
 
 /**
@@ -129,7 +110,7 @@ router.use(authMiddleware);
  *     summary: Изменение статуса заявки
  *     tags: [Admin]
  *     security:
- *       - BearerAuth: []
+ *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: id
@@ -146,7 +127,7 @@ router.use(authMiddleware);
  *             properties:
  *               status:
  *                 type: string
- *                 enum: [draft, submitted, in_review, needs_info, estimated, approved, in_progress, completed, cancelled]
+ *                 enum: [draft, submitted, in_review, approved, in_progress, completed, cancelled, rejected]
  *                 description: Новый статус заявки
  *               comment:
  *                 type: string
@@ -168,153 +149,10 @@ router.use(authMiddleware);
  *                   properties:
  *                     application:
  *                       $ref: '#/components/schemas/Application'
- *                     status_change:
- *                       type: object
- *                       description: Информация об изменении статуса
- */
-
-/**
- * @swagger
- * /admin/applications/{id}/reset-to-draft:
- *   post:
- *     summary: Возврат заявки в черновик
- *     tags: [Admin]
- *     security:
- *       - BearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *         description: ID заявки
- *     requestBody:
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               reason:
- *                 type: string
- *                 description: Причина возврата в черновик
- *     responses:
- *       200:
- *         description: Заявка возвращена в статус черновика
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                 message:
- *                   type: string
- *                 data:
- *                   type: object
- *                   properties:
- *                     application_id:
- *                       type: string
- *                     status:
- *                       type: string
- */
-
-/**
- * @swagger
- * /admin/applications/{id}/assign:
- *   put:
- *     summary: Назначение менеджера на заявку
- *     tags: [Admin]
- *     security:
- *       - BearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *         description: ID заявки
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               manager_id:
- *                 type: string
- *                 description: ID менеджера
- *     responses:
- *       200:
- *         description: Менеджер успешно назначен
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                 message:
- *                   type: string
- *                 data:
- *                   type: object
- *                   properties:
- *                     application_id:
- *                       type: string
- *                     new_manager:
- *                       type: object
- *                       properties:
- *                         id:
- *                           type: string
- *                         full_name:
- *                           type: string
- *                         email:
- *                           type: string
- */
-
-/**
- * @swagger
- * /admin/applications/{id}/notes:
- *   post:
- *     summary: Добавление внутренней заметки к заявке
- *     tags: [Admin]
- *     security:
- *       - BearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *         description: ID заявки
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               note:
- *                 type: string
- *                 description: Текст заметки
- *     responses:
- *       200:
- *         description: Заметка успешно добавлена
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                 message:
- *                   type: string
- *                 data:
- *                   type: object
- *                   properties:
- *                     application_id:
- *                       type: string
- *                     note:
- *                       type: string
+ *       400:
+ *         description: Ошибка валидации
+ *       404:
+ *         description: Заявка не найдена
  */
 
 /**
@@ -324,35 +162,18 @@ router.use(authMiddleware);
  *     summary: Получение списка пользователей
  *     tags: [Admin]
  *     security:
- *       - BearerAuth: []
+ *       - bearerAuth: []
  *     parameters:
  *       - in: query
  *         name: role
  *         schema:
  *           type: string
- *         description: Фильтр по роли
+ *         description: Фильтр по роли пользователя
  *       - in: query
  *         name: is_active
  *         schema:
- *           type: string
- *         description: Фильтр по активности
- *       - in: query
- *         name: date_from
- *         schema:
- *           type: string
- *           format: date
- *         description: Фильтр по дате регистрации
- *       - in: query
- *         name: date_to
- *         schema:
- *           type: string
- *           format: date
- *         description: Фильтр по дате регистрации
- *       - in: query
- *         name: search
- *         schema:
- *           type: string
- *         description: Поиск по ключевым словам
+ *           type: boolean
+ *         description: Фильтр по активности пользователя
  *       - in: query
  *         name: page
  *         schema:
@@ -381,8 +202,146 @@ router.use(authMiddleware);
  *                       items:
  *                         $ref: '#/components/schemas/User'
  *                     pagination:
- *                       type: object
- *                       description: Информация о пагинации
+ *                       $ref: '#/components/schemas/Pagination'
+ */
+
+/**
+ * @swagger
+ * /admin/applications/{id}/reset-to-draft:
+ *   post:
+ *     summary: Возврат заявки в черновик
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID заявки
+ *     responses:
+ *       200:
+ *         description: Заявка успешно возвращена в черновик
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 message:
+ *                   type: string
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     application:
+ *                       $ref: '#/components/schemas/Application'
+ *       400:
+ *         description: Ошибка валидации
+ *       404:
+ *         description: Заявка не найдена
+ */
+
+/**
+ * @swagger
+ * /admin/applications/{id}/assign:
+ *   put:
+ *     summary: Назначение менеджера на заявку
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID заявки
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               manager_id:
+ *                 type: string
+ *                 format: uuid
+ *                 description: ID менеджера
+ *                 example: 123e4567-e89b-12d3-a456-426614174002
+ *     responses:
+ *       200:
+ *         description: Менеджер успешно назначен
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 message:
+ *                   type: string
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     application_id:
+ *                       type: string
+ *                     old_manager_id:
+ *                       type: string
+ *                     new_manager:
+ *                       $ref: '#/components/schemas/User'
+ *       400:
+ *         description: Ошибка валидации
+ *       404:
+ *         description: Заявка или менеджер не найдены
+ */
+
+/**
+ * @swagger
+ * /admin/applications/{id}/notes:
+ *   post:
+ *     summary: Добавление внутренней заметки к заявке
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID заявки
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               note:
+ *                 type: string
+ *                 description: Содержание заметки
+ *                 example: "Важное замечание по заявке"
+ *     responses:
+ *       201:
+ *         description: Заметка успешно добавлена
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 message:
+ *                   type: string
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     note:
+ *                       $ref: '#/components/schemas/Note'
+ *       400:
+ *         description: Ошибка валидации
  */
 
 /**
@@ -392,7 +351,7 @@ router.use(authMiddleware);
  *     summary: Изменение роли пользователя
  *     tags: [Admin]
  *     security:
- *       - BearerAuth: []
+ *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: id
@@ -409,8 +368,9 @@ router.use(authMiddleware);
  *             properties:
  *               role:
  *                 type: string
- *                 enum: [client, manager, admin]
+ *                 enum: [client, manager, admin, super_admin]
  *                 description: Новая роль пользователя
+ *                 example: manager
  *     responses:
  *       200:
  *         description: Роль пользователя успешно изменена
@@ -439,6 +399,10 @@ router.use(authMiddleware);
  *                           type: string
  *                         new_role:
  *                           type: string
+ *       400:
+ *         description: Ошибка валидации
+ *       404:
+ *         description: Пользователь не найден
  */
 
 /**
@@ -448,7 +412,7 @@ router.use(authMiddleware);
  *     summary: Получение статистики для дашборда
  *     tags: [Admin]
  *     security:
- *       - BearerAuth: []
+ *       - bearerAuth: []
  *     responses:
  *       200:
  *         description: Статистика для дашборда
@@ -462,35 +426,12 @@ router.use(authMiddleware);
  *                 data:
  *                   type: object
  *                   properties:
- *                     overview:
+ *                     stats:
  *                       type: object
- *                       description: Общая статистика
- *                     by_status:
- *                       type: array
- *                       items:
- *                         type: object
- *                         description: Статистика по статусам
- *                     by_service:
- *                       type: array
- *                       items:
- *                         type: object
- *                         description: Статистика по типам услуг
- *                     by_role:
- *                       type: array
- *                       items:
- *                         type: object
- *                         description: Статистика по ролям
- *                     manager_load:
- *                       type: array
- *                       items:
- *                         type: object
- *                         description: Нагрузка на менеджеров
- *                     recent_activity:
- *                       type: array
- *                       items:
- *                         type: object
- *                         description: Последние действия
  */
+
+// Все маршруты требуют аутентификации
+router.use(authMiddleware);
 
 // === Заявки ===
 
@@ -528,34 +469,5 @@ router.put('/users/:id/role', requireAdmin, notSelfAction, AdminController.updat
 
 // Получение статистики для дашборда
 router.get('/stats/dashboard', requireManager, AdminController.getDashboardStats);
-
-// === Дополнительные endpoint'ы ===
-
-// Получение доступных переходов статуса для заявки (перенесено в ApplicationController)
-// router.get('/applications/:id/transitions', requireManager, AdminController.getStatusTransitions);
-
-// Экспорт заявок (заглушка)
-router.get('/applications/export', requireManager, (req, res) => {
-  res.json({
-    success: true,
-    message: 'Экспорт заявок (функционал в разработке)'
-  });
-});
-
-// Массовые действия с заявками (заглушка)
-router.post('/applications/bulk-action', requireManager, (req, res) => {
-  res.json({
-    success: true,
-    message: 'Массовые действия (функционал в разработке)'
-  });
-});
-
-// Просмотр логов системы (заглушка)
-router.get('/system/logs', requireAdmin, (req, res) => {
-  res.json({
-    success: true,
-    message: 'Логи системы (функционал в разработке)'
-  });
-});
 
 module.exports = router;

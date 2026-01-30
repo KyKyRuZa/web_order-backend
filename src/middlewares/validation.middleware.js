@@ -102,36 +102,36 @@ const createApplicationValidation = validate([
     .trim()
     .notEmpty().withMessage('Название обязательно')
     .isLength({ min: 5, max: 200 }).withMessage('Название должно содержать от 5 до 200 символов'),
-  
+
   body('description')
     .optional()
     .isLength({ max: 5000 }).withMessage('Описание не должно превышать 5000 символов'),
-  
-  body('serviceType')
+
+  body('service_type')
     .notEmpty().withMessage('Тип услуги обязателен')
     .isIn(Object.values(require('../models').Application.SERVICE_TYPES))
     .withMessage('Некорректный тип услуги'),
-  
-  body('contactFullName')
+
+  body('contact_full_name')
     .optional()
     .trim()
     .isLength({ min: 2, max: 100 }).withMessage('Контактное лицо должно содержать от 2 до 100 символов'),
-  
-  body('contactEmail')
+
+  body('contact_email')
     .optional()
     .trim()
     .isEmail().withMessage('Некорректный формат email'),
-  
-  body('contactPhone')
+
+  body('contact_phone')
     .optional()
     .matches(/^[\+]?[1-9]\d{1,14}$/).withMessage('Некорректный формат номера телефона'),
-  
-  body('companyName')
+
+  body('company_name')
     .optional()
     .trim()
     .isLength({ max: 100 }).withMessage('Название компании не должно превышать 100 символов'),
-  
-  body('expectedBudget')
+
+  body('expected_budget')
     .optional()
     .isInt({ min: 0 }).withMessage('Ожидаемый бюджет должен быть неотрицательным числом')
 ]);

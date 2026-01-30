@@ -2,6 +2,59 @@ const { Model, DataTypes } = require('sequelize');
 const sequelize = require('../config/sequelize');
 const bcrypt = require('bcryptjs');
 
+/**
+ * @swagger
+ * components:
+ *   schemas:
+ *     User:
+ *       type: object
+ *       required:
+ *         - email
+ *         - full_name
+ *       properties:
+ *         id:
+ *           type: string
+ *           format: uuid
+ *           description: Уникальный идентификатор пользователя
+ *           example: 123e4567-e89b-12d3-a456-426614174000
+ *         email:
+ *           type: string
+ *           format: email
+ *           description: Email пользователя
+ *           example: user@example.com
+ *         full_name:
+ *           type: string
+ *           description: Полное имя пользователя
+ *           example: Иван Иванов
+ *         phone:
+ *           type: string
+ *           description: Телефон пользователя
+ *           example: +79991234567
+ *         company_name:
+ *           type: string
+ *           description: Название компании
+ *           example: ООО "Рога и копыта"
+ *         role:
+ *           type: string
+ *           enum: [client, manager, admin, super_admin]
+ *           description: Роль пользователя в системе
+ *           example: client
+ *         is_email_verified:
+ *           type: boolean
+ *           description: Подтвержден ли email
+ *           example: true
+ *         created_at:
+ *           type: string
+ *           format: date-time
+ *           description: Дата создания пользователя
+ *           example: 2023-01-01T00:00:00.000Z
+ *         updated_at:
+ *           type: string
+ *           format: date-time
+ *           description: Дата последнего обновления
+ *           example: 2023-01-01T00:00:00.000Z
+ */
+
 class User extends Model {
   static ROLES = Object.freeze({
     CLIENT: 'client',
@@ -33,10 +86,6 @@ class User extends Model {
 
     if (!/(?=.*[0-9])/.test(password)) {
       errors.push('Пароль должен содержать хотя бы одну цифру');
-    }
-
-    if (!/(?=.*[!@#$%^&*])/.test(password)) {
-      errors.push('Пароль должен содержать хотя бы один специальный символ (!@#$%^&*)');
     }
 
     return errors;
@@ -165,9 +214,6 @@ User.init(
             throw new Error('Пароль должен содержать хотя бы одну цифру');
           }
 
-          if (!/(?=.*[!@#$%^&*])/.test(value)) {
-            throw new Error('Пароль должен содержать хотя бы один специальный символ (!@#$%^&*)');
-          }
         }
       }
     },
@@ -227,11 +273,11 @@ User.init(
       field: 'reset_password_expires'
     },
     role: {
-      type: DataTypes.ENUM('client', 'manager', 'admin'),
+      type: DataTypes.ENUM('client', 'manager', 'admin', 'super_admin'),
       defaultValue: 'client',
       validate: {
         isIn: {
-          args: [['client', 'manager', 'admin']],
+          args: [['client', 'manager', 'admin', 'super_admin']],
           msg: 'Недопустимая роль пользователя'
         }
       }

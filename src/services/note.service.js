@@ -307,7 +307,7 @@ class NoteService {
   }
 
   // Закрепление/открепление заметки
-  static async togglePin(noteId, userId, userRole) {
+  static async togglePin(noteId, userId, userRole, additionalData = {}) {
     // Находим заметку
     const note = await ApplicationNote.findByPk(noteId);
 
@@ -341,10 +341,10 @@ class NoteService {
       newValue: { ...oldValues, is_pinned: !oldValues.is_pinned },
       ipAddress: (() => {
         const { isValidIP } = require('../utils/ip-validator.util');
-        if (updateData.ip && isValidIP(updateData.ip)) return updateData.ip;
+        if (additionalData.ip && isValidIP(additionalData.ip)) return additionalData.ip;
         return null;
       })(),
-      userAgent: updateData.userAgent
+      userAgent: additionalData.userAgent
     });
 
     return {

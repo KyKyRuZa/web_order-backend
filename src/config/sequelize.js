@@ -2,7 +2,7 @@ const { Sequelize } = require('sequelize');
 const config = require('./database')[process.env.NODE_ENV || 'development'];
 
 const sequelize = new Sequelize(
-  config.database,
+  config.database || config.storage,
   config.username,
   config.password,
   {
@@ -12,7 +12,8 @@ const sequelize = new Sequelize(
     logging: config.logging,
     pool: config.pool,
     dialectOptions: config.dialectOptions,
-    define: config.define
+    define: config.define,
+    storage: config.storage // для SQLite
   }
 );
 

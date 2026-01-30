@@ -4,11 +4,10 @@ const cors = require('cors');
 const rateLimit = require('express-rate-limit');
 const morgan = require('morgan');
 const compression = require('compression');
+const swaggerUi = require('swagger-ui-express');
+const swaggerSpec = require('./config/swagger');
 const errorHandler = require('./middlewares/errorHandler');
 const logger = require('./config/logger');
-const swaggerUi = require('swagger-ui-express');
-const swaggerJsdoc = require('swagger-jsdoc');
-const swaggerDefinition = require('./swaggerDef');
 
 // Импорт маршрутов
 const authRoutes = require('./routes/auth.routes');
@@ -61,7 +60,7 @@ app.use((req, res, next) => {
 
 // CORS
 app.use(cors({
-  origin: 'http://localhost:3000',
+  origin: process.env.CLIENT_URL || 'http://localhost:3000',
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
@@ -205,6 +204,9 @@ app.get('/api/test-db', async (req, res, next) => {
   }
 });
 
+// === Swagger UI ===
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+
 // === Основные маршруты API ===
 app.use('/api/auth', authRoutes);
 app.use('/api/applications', applicationRoutes);
@@ -215,13 +217,6 @@ app.use('/api/audit', auditRoutes);
 // === Обработка ошибок ===
 app.use(errorHandler);
 
-// === Swagger UI ===
-const options = {
-  swaggerDefinition,
-  apis: ['./src/routes/*.js', './src/controllers/*.js', './src/swaggerDef.js'], // пути к файлам, содержащим аннотации JSDoc
-};
-const specs = swaggerJsdoc(options);
-app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs));
 
 // === Обработка 404 ===
 app.use((req, res) => {

@@ -44,7 +44,6 @@ class ApplicationService {
             Application.STATUSES.SUBMITTED,
             Application.STATUSES.IN_REVIEW,
             Application.STATUSES.IN_PROGRESS,
-            Application.STATUSES.ESTIMATED,
             Application.STATUSES.APPROVED
           ]
         };
@@ -162,15 +161,15 @@ class ApplicationService {
           available: {
             statuses: statuses.map(s => ({
               value: s.status,
-              label: Application.STATUSES_DISPLAY[s.status] || s.status
+              label: Application.getStatusDisplay(s.status) || s.status
             })),
             service_types: serviceTypes.map(s => ({
               value: s.service_type,
-              label: Application.SERVICE_TYPES_DISPLAY[s.service_type] || s.service_type
+              label: Application.getServiceTypeDisplay(s.service_type) || s.service_type
             })),
             priorities: priorities.map(p => ({
               value: p.priority,
-              label: Application.PRIORITIES_DISPLAY[p.priority] || p.priority
+              label: p.priority // Используем значение напрямую, т.к. нет метода для приоритетов
             }))
           },
           applied: {

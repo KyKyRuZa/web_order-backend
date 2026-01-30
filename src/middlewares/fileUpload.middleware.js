@@ -37,6 +37,26 @@ const fileFilter = (req, file, cb) => {
     return cb(new Error(`Неподдерживаемый тип файла: ${file.mimetype}`), false);
   }
 
+  // Проверяем расширение файла для дополнительной безопасности
+  const allowedExtensions = {
+    'image/jpeg': ['.jpg', '.jpeg'],
+    'image/png': ['.png'],
+    'image/gif': ['.gif'],
+    'application/pdf': ['.pdf'],
+    'application/msword': ['.doc'],
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'],
+    'text/plain': ['.txt'],
+    'application/zip': ['.zip'],
+    'application/x-rar-compressed': ['.rar']
+  };
+
+  const fileExtension = path.extname(file.originalname).toLowerCase();
+  const allowedExts = allowedExtensions[file.mimetype];
+
+  if (!allowedExts || !allowedExts.includes(fileExtension)) {
+    return cb(new Error(`Неподдерживаемое расширение файла: ${fileExtension} для типа ${file.mimetype}`), false);
+  }
+
   // Проверяем размер файла
   // multer не предоставляет информацию о размере файла в fileFilter
   // но мы можем проверить это в контроллере

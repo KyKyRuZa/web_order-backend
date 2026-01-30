@@ -119,7 +119,6 @@ class PerformanceService {
               [Op.in]: [
                 Application.STATUSES.SUBMITTED,
                 Application.STATUSES.IN_REVIEW,
-                Application.STATUSES.ESTIMATED,
                 Application.STATUSES.APPROVED,
                 Application.STATUSES.IN_PROGRESS
               ]

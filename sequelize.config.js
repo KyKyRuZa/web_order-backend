@@ -1,3 +1,4 @@
+// sequelize.config.js
 require('dotenv').config();
 
 module.exports = {
@@ -10,15 +11,15 @@ module.exports = {
     dialect: 'postgres',
     logging: process.env.NODE_ENV === 'development' ? console.log : false,
     pool: {
-      max: 20, // Увеличиваем максимальное количество соединений
-      min: 5,  // Увеличиваем минимальное количество соединений
-      acquire: 60000, // Увеличиваем время ожидания при получении соединения
-      idle: 30000,    // Увеличиваем время жизни неиспользуемого соединения
-      evict: 60000,   // Интервал проверки простаивающих соединений
-      handleDisconnects: true // Обработка разрыва соединений
+      max: 20,
+      min: 5,
+      acquire: 60000,
+      idle: 30000,
+      evict: 60000,
+      handleDisconnects: true
     },
     retry: {
-      max: 3, // Количество попыток при ошибках
+      max: 3,
       match: [
         /SQLITE_BUSY/,
         /SQLITE_LOCKED/,
@@ -27,8 +28,7 @@ module.exports = {
       ]
     },
     dialectOptions: {
-      // Дополнительные опции для PostgreSQL
-      application_name: 'WebDev Orders API',
+      application_name: 'WebDev Orders Development API',
     },
     define: {
       timestamps: true,
@@ -37,7 +37,6 @@ module.exports = {
       updatedAt: 'updated_at',
       deletedAt: 'deleted_at',
       paranoid: true
-      // Не устанавливаем глобальные индексы, чтобы избежать конфликта с переопределенными полями в моделях
     }
   },
   test: {
@@ -72,12 +71,12 @@ module.exports = {
     dialect: 'postgres',
     logging: false,
     pool: {
-      max: 30, // Увеличиваем максимальное количество соединений для продакшена
-      min: 10,  // Увеличиваем минимальное количество соединений
-      acquire: 60000, // Увеличиваем время ожидания при получении соединения
-      idle: 30000,    // Увеличиваем время жизни неиспользуемого соединения
-      evict: 60000,   // Интервал проверки простаивающих соединений
-      handleDisconnects: true // Обработка разрыва соединений
+      max: 30,
+      min: 10,
+      acquire: 60000,
+      idle: 30000,
+      evict: 60000,
+      handleDisconnects: true
     },
     dialectOptions: {
       ssl: {
@@ -87,7 +86,7 @@ module.exports = {
       application_name: 'WebDev Orders Production API'
     },
     retry: {
-      max: 5, // Увеличиваем количество попыток для продакшена
+      max: 5,
       match: [
         /SQLITE_BUSY/,
         /SQLITE_LOCKED/,
@@ -103,7 +102,6 @@ module.exports = {
       updatedAt: 'updated_at',
       deletedAt: 'deleted_at',
       paranoid: true
-      // Не устанавливаем глобальные индексы, чтобы избежать конфликта с переопределенными полями в моделях
     }
   }
 };

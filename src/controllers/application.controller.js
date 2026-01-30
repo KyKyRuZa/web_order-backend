@@ -13,7 +13,7 @@ class ApplicationController {
     // Используем оптимизированный сервис
     const filters = {
       status: req.query.status,
-      service_type: req.query.serviceType,
+      service_type: req.query.service_type,
       priority: req.query.priority
     };
 
@@ -53,16 +53,16 @@ class ApplicationController {
     const {
       title,
       description,
-      serviceType,
-      contactFullName,
-      contactEmail,
-      contactPhone,
-      companyName,
-      expectedBudget  // Обновленное поле - теперь это число, а не ENUM
+      service_type,
+      contact_full_name,
+      contact_email,
+      contact_phone,
+      company_name,
+      expected_budget  // Обновленное поле - теперь это число, а не ENUM
     } = req.body;
 
     // Валидация типа услуги
-    if (serviceType && !Object.values(Application.SERVICE_TYPES).includes(serviceType)) {
+    if (service_type && !Object.values(Application.SERVICE_TYPES).includes(service_type)) {
       return res.status(400).json({
         success: false,
         message: 'Некорректный тип услуги'
@@ -70,7 +70,7 @@ class ApplicationController {
     }
 
     // Валидация ожидаемого бюджета (теперь это число)
-    if (expectedBudget !== undefined && (typeof expectedBudget !== 'number' || expectedBudget < 0)) {
+    if (expected_budget !== undefined && (typeof expected_budget !== 'number' || expected_budget < 0)) {
       return res.status(400).json({
         success: false,
         message: 'Ожидаемый бюджет должен быть неотрицательным числом'
@@ -80,12 +80,12 @@ class ApplicationController {
     const applicationData = {
       title,
       description,
-      serviceType,
-      contactFullName,
-      contactEmail,
-      contactPhone,
-      companyName,
-      expectedBudget
+      service_type,
+      contact_full_name,
+      contact_email,
+      contact_phone,
+      company_name,
+      expected_budget
     };
 
     const application = await ApplicationService.create(userId, applicationData);

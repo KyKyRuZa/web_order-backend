@@ -9,13 +9,13 @@ class NoteController {
     const { applicationId } = req.params;
     const userId = req.user.id;
     const userRole = req.user.role;
-    const { content, noteType, isPinned } = req.body;
+    const { content, note_type, is_pinned } = req.body;
 
     // Подготовим данные для создания заметки
     const noteData = {
       content,
-      noteType,
-      isPinned,
+      note_type,
+      is_pinned,
       ip: (() => {
         const { isValidIP } = require('../utils/ip-validator.util');
         if (isValidIP(req.ip)) return req.ip;
@@ -43,11 +43,11 @@ class NoteController {
     const { applicationId } = req.params;
     const userId = req.user.id;
     const userRole = req.user.role;
-    const { noteType, isPinned, page = 1, limit = 20 } = req.query;
+    const { note_type, is_pinned, page = 1, limit = 20 } = req.query;
 
     const filters = {
-      noteType,
-      isPinned,
+      note_type,
+      is_pinned,
       page,
       limit
     };
@@ -68,12 +68,12 @@ class NoteController {
   static update = wrapController(async (req, res) => {
     const { noteId } = req.params;
     const userId = req.user.id;
-    const { content, noteType, isPinned } = req.body;
+    const { content, note_type, is_pinned } = req.body;
 
     const updateData = {
       content,
-      noteType,
-      isPinned,
+      note_type,
+      is_pinned,
       ip: (() => {
         const { isValidIP } = require('../utils/ip-validator.util');
         if (isValidIP(req.ip)) return req.ip;

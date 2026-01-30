@@ -1,6 +1,197 @@
 const { Model, DataTypes } = require('sequelize');
 const sequelize = require('../config/sequelize');
 
+/**
+ * @swagger
+ * components:
+ *   schemas:
+ *     Application:
+ *       type: object
+ *       required:
+ *         - title
+ *         - service_type
+ *         - contact_email
+ *       properties:
+ *         id:
+ *           type: string
+ *           format: uuid
+ *           description: Уникальный идентификатор заявки
+ *           example: 123e4567-e89b-12d3-a456-426614174000
+ *         user_id:
+ *           type: string
+ *           format: uuid
+ *           description: ID пользователя, создавшего заявку
+ *           example: 123e4567-e89b-12d3-a456-426614174001
+ *         title:
+ *           type: string
+ *           description: Название заявки
+ *           example: "Создание корпоративного сайта"
+ *         description:
+ *           type: string
+ *           description: Описание заявки
+ *           example: "Необходимо создать современный корпоративный сайт с CMS"
+ *         service_type:
+ *           type: string
+ *           enum: [landing_page, corporate_site, ecommerce, web_application, other]
+ *           description: Тип услуги
+ *           example: corporate_site
+ *         contact_email:
+ *           type: string
+ *           format: email
+ *           description: Контактный email
+ *           example: client@example.com
+ *         contact_phone:
+ *           type: string
+ *           description: Контактный телефон
+ *           example: +79991234567
+ *         company_name:
+ *           type: string
+ *           description: Название компании клиента
+ *           example: ООО "Рога и копыта"
+ *         expected_budget:
+ *           type: integer
+ *           description: Ожидаемый бюджет в рублях
+ *           example: 150000
+ *         status:
+ *           type: string
+ *           enum: [draft, submitted, in_review, approved, in_progress, completed, cancelled, rejected]
+ *           description: Статус заявки
+ *           example: draft
+ *         priority:
+ *           type: string
+ *           enum: [low, normal, high, urgent]
+ *           description: Приоритет заявки
+ *           example: normal
+ *         assigned_to:
+ *           type: string
+ *           format: uuid
+ *           description: ID менеджера, назначенного на заявку
+ *           example: 123e4567-e89b-12d3-a456-426614174002
+ *         submitted_at:
+ *           type: string
+ *           format: date-time
+ *           description: Дата подачи заявки
+ *           example: 2023-01-01T00:00:00.000Z
+ *         deadline:
+ *           type: string
+ *           format: date-time
+ *           description: Крайний срок выполнения
+ *           example: 2023-02-01T00:00:00.000Z
+ *         created_at:
+ *           type: string
+ *           format: date-time
+ *           description: Дата создания заявки
+ *           example: 2023-01-01T00:00:00.000Z
+ *         updated_at:
+ *           type: string
+ *           format: date-time
+ *           description: Дата последнего обновления
+ *           example: 2023-01-01T00:00:00.000Z
+ *     CreateApplicationRequest:
+ *       type: object
+ *       required:
+ *         - title
+ *         - service_type
+ *         - contact_full_name
+ *         - contact_email
+ *         - contact_phone
+ *       properties:
+ *         title:
+ *           type: string
+ *           description: Название заявки
+ *           example: "Создание корпоративного сайта"
+ *         description:
+ *           type: string
+ *           description: Описание заявки
+ *           example: "Необходимо создать современный корпоративный сайт с CMS"
+ *         service_type:
+ *           type: string
+ *           enum: [landing_page, corporate_site, ecommerce, web_application, other]
+ *           description: Тип услуги
+ *           example: corporate_site
+ *         contact_full_name:
+ *           type: string
+ *           description: Контактное имя
+ *           example: Иван Иванов
+ *         contact_email:
+ *           type: string
+ *           format: email
+ *           description: Контактный email
+ *           example: client@example.com
+ *         contact_phone:
+ *           type: string
+ *           description: Контактный телефон
+ *           example: +79991234567
+ *         company_name:
+ *           type: string
+ *           description: Название компании клиента
+ *           example: ООО "Рога и копыта"
+ *         expected_budget:
+ *           type: integer
+ *           description: Ожидаемый бюджет в рублях
+ *           example: 150000
+ *     UpdateApplicationRequest:
+ *       type: object
+ *       properties:
+ *         title:
+ *           type: string
+ *           description: Название заявки
+ *         description:
+ *           type: string
+ *           description: Описание заявки
+ *         service_type:
+ *           type: string
+ *           enum: [landing_page, corporate_site, ecommerce, web_application, other]
+ *           description: Тип услуги
+ *         contact_full_name:
+ *           type: string
+ *           description: Контактное имя
+ *         contact_email:
+ *           type: string
+ *           format: email
+ *           description: Контактный email
+ *         contact_phone:
+ *           type: string
+ *           description: Контактный телефон
+ *         company_name:
+ *           type: string
+ *           description: Название компании клиента
+ *         expected_budget:
+ *           type: integer
+ *           description: Ожидаемый бюджет в рублях
+ *         status:
+ *           type: string
+ *           enum: [draft, submitted, in_review, approved, in_progress, completed, cancelled, rejected]
+ *           description: Статус заявки
+ *     Pagination:
+ *       type: object
+ *       properties:
+ *         total:
+ *           type: integer
+ *           description: Общее количество элементов
+ *           example: 100
+ *         page:
+ *           type: integer
+ *           description: Номер текущей страницы
+ *           example: 1
+ *         limit:
+ *           type: integer
+ *           description: Количество элементов на странице
+ *           example: 10
+ *         pages:
+ *           type: integer
+ *           description: Общее количество страниц
+ *           example: 10
+ *         has_next:
+ *           type: boolean
+ *           description: Есть ли следующая страница
+ *           example: true
+ *         has_prev:
+ *           type: boolean
+ *           description: Есть ли предыдущая страница
+ *           example: false
+ */
+
 class Application extends Model {
   static STATUSES = Object.freeze({
     DRAFT: 'draft',
@@ -366,6 +557,17 @@ Application.init(
         isIn: {
           args: [Object.values(Application.STATUSES)],
           msg: 'Недопустимый статус заявки'
+        }
+      }
+    },
+    // Приоритет заявки
+    priority: {
+      type: DataTypes.ENUM('low', 'normal', 'high', 'urgent'),
+      defaultValue: 'normal',
+      validate: {
+        isIn: {
+          args: [['low', 'normal', 'high', 'urgent']],
+          msg: 'Недопустимый приоритет заявки'
         }
       }
     },

@@ -4,17 +4,63 @@ const NoteController = require('../controllers/note.controller');
 const { authMiddleware } = require('../middlewares/auth.middleware');
 const { requireManager } = require('../middlewares/role.middleware');
 
-// Все маршруты требуют аутентификации
-router.use(authMiddleware);
+/**
+ * @swagger
+ * components:
+ *   schemas:
+ *     Note:
+ *       type: object
+ *       required:
+ *         - content
+ *       properties:
+ *         id:
+ *           type: string
+ *           format: uuid
+ *           description: Уникальный идентификатор заметки
+ *           example: 123e4567-e89b-12d3-a456-426614174003
+ *         application_id:
+ *           type: string
+ *           format: uuid
+ *           description: ID заявки, к которой относится заметка
+ *           example: 123e4567-e89b-12d3-a456-426614174000
+ *         author_id:
+ *           type: string
+ *           format: uuid
+ *           description: ID автора заметки
+ *           example: 123e4567-e89b-12d3-a456-426614174001
+ *         content:
+ *           type: string
+ *           description: Содержание заметки
+ *           example: "Необходимо уточнить требования к дизайну"
+ *         note_type:
+ *           type: string
+ *           enum: [internal, comment, system, change_log]
+ *           description: Тип заметки
+ *           example: internal
+ *         is_pinned:
+ *           type: boolean
+ *           description: Закреплена ли заметка
+ *           example: false
+ *         created_at:
+ *           type: string
+ *           format: date-time
+ *           description: Дата создания заметки
+ *           example: 2023-01-01T00:00:00.000Z
+ *         updated_at:
+ *           type: string
+ *           format: date-time
+ *           description: Дата последнего обновления
+ *           example: 2023-01-01T00:00:00.000Z
+ */
 
 /**
  * @swagger
- * /applications/{applicationId}/notes:
+ * /notes/applications/{applicationId}/notes:
  *   post:
  *     summary: Создание новой заметки к заявке
  *     tags: [Notes]
  *     security:
- *       - BearerAuth: []
+ *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: applicationId
@@ -28,20 +74,20 @@ router.use(authMiddleware);
  *         application/json:
  *           schema:
  *             type: object
- *             required:
- *               - content
  *             properties:
  *               content:
  *                 type: string
  *                 description: Содержание заметки
- *                 maxLength: 5000
- *               noteType:
+ *                 example: "Необходимо уточнить требования к дизайну"
+ *               note_type:
  *                 type: string
  *                 enum: [internal, comment, system, change_log]
  *                 description: Тип заметки
- *               isPinned:
+ *                 example: internal
+ *               is_pinned:
  *                 type: boolean
- *                 description: Закреплена ли заметка
+ *                 description: Закрепить ли заметку
+ *                 example: false
  *     responses:
  *       201:
  *         description: Заметка успешно создана
@@ -58,17 +104,19 @@ router.use(authMiddleware);
  *                   type: object
  *                   properties:
  *                     note:
- *                       $ref: '#/components/schemas/ApplicationNote'
+ *                       $ref: '#/components/schemas/Note'
+ *       400:
+ *         description: Ошибка валидации
  */
 
 /**
  * @swagger
- * /applications/{applicationId}/notes:
+ * /notes/applications/{applicationId}/notes:
  *   get:
  *     summary: Получение всех заметок к заявке
  *     tags: [Notes]
  *     security:
- *       - BearerAuth: []
+ *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: applicationId
@@ -77,13 +125,12 @@ router.use(authMiddleware);
  *           type: string
  *         description: ID заявки
  *       - in: query
- *         name: noteType
+ *         name: note_type
  *         schema:
  *           type: string
- *           enum: [internal, comment, system, change_log]
  *         description: Фильтр по типу заметки
  *       - in: query
- *         name: isPinned
+ *         name: is_pinned
  *         schema:
  *           type: boolean
  *         description: Фильтр по статусу закрепления
@@ -113,10 +160,9 @@ router.use(authMiddleware);
  *                     notes:
  *                       type: array
  *                       items:
- *                         $ref: '#/components/schemas/ApplicationNote'
+ *                         $ref: '#/components/schemas/Note'
  *                     pagination:
- *                       type: object
- *                       description: Информация о пагинации
+ *                       $ref: '#/components/schemas/Pagination'
  */
 
 /**
@@ -126,7 +172,7 @@ router.use(authMiddleware);
  *     summary: Получение заметки по ID
  *     tags: [Notes]
  *     security:
- *       - BearerAuth: []
+ *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: noteId
@@ -148,7 +194,9 @@ router.use(authMiddleware);
  *                   type: object
  *                   properties:
  *                     note:
- *                       $ref: '#/components/schemas/ApplicationNote'
+ *                       $ref: '#/components/schemas/Note'
+ *       404:
+ *         description: Заметка не найдена
  */
 
 /**
@@ -158,7 +206,7 @@ router.use(authMiddleware);
  *     summary: Обновление заметки
  *     tags: [Notes]
  *     security:
- *       - BearerAuth: []
+ *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: noteId
@@ -170,19 +218,7 @@ router.use(authMiddleware);
  *       content:
  *         application/json:
  *           schema:
- *             type: object
- *             properties:
- *               content:
- *                 type: string
- *                 description: Содержание заметки
- *                 maxLength: 5000
- *               noteType:
- *                 type: string
- *                 enum: [internal, comment, system, change_log]
- *                 description: Тип заметки
- *               isPinned:
- *                 type: boolean
- *                 description: Закреплена ли заметка
+ *             $ref: '#/components/schemas/Note'
  *     responses:
  *       200:
  *         description: Заметка успешно обновлена
@@ -199,7 +235,11 @@ router.use(authMiddleware);
  *                   type: object
  *                   properties:
  *                     note:
- *                       $ref: '#/components/schemas/ApplicationNote'
+ *                       $ref: '#/components/schemas/Note'
+ *       400:
+ *         description: Ошибка валидации
+ *       404:
+ *         description: Заметка не найдена
  */
 
 /**
@@ -209,7 +249,7 @@ router.use(authMiddleware);
  *     summary: Удаление заметки
  *     tags: [Notes]
  *     security:
- *       - BearerAuth: []
+ *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: noteId
@@ -229,6 +269,10 @@ router.use(authMiddleware);
  *                   type: boolean
  *                 message:
  *                   type: string
+ *       400:
+ *         description: Ошибка валидации
+ *       404:
+ *         description: Заметка не найдена
  */
 
 /**
@@ -238,7 +282,7 @@ router.use(authMiddleware);
  *     summary: Закрепление/открепление заметки
  *     tags: [Notes]
  *     security:
- *       - BearerAuth: []
+ *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: noteId
@@ -262,9 +306,15 @@ router.use(authMiddleware);
  *                   type: object
  *                   properties:
  *                     note:
- *                       $ref: '#/components/schemas/ApplicationNote'
+ *                       $ref: '#/components/schemas/Note'
+ *       400:
+ *         description: Ошибка валидации
+ *       404:
+ *         description: Заметка не найдена
  */
 
+// Все маршруты требуют аутентификации
+router.use(authMiddleware);
 
 // Создание новой заметки к заявке
 router.post('/applications/:applicationId/notes', NoteController.create);

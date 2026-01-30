@@ -9,8 +9,12 @@ const {
 } = require('../middlewares/validation.middleware');
 const { uploadSingleFile, validateFileSize } = require('../middlewares/fileUpload.middleware');
 
-// Все маршруты требуют аутентификации
-router.use(authMiddleware);
+/**
+ * @swagger
+ * tags:
+ *   name: Applications
+ *   description: Управление заявками
+ */
 
 /**
  * @swagger
@@ -19,13 +23,13 @@ router.use(authMiddleware);
  *     summary: Получение списка заявок
  *     tags: [Applications]
  *     security:
- *       - BearerAuth: []
+ *       - bearerAuth: []
  *     parameters:
  *       - in: query
  *         name: status
  *         schema:
  *           type: string
- *         description: Фильтр по статусу
+ *         description: Фильтр по статусу заявки
  *       - in: query
  *         name: service_type
  *         schema:
@@ -64,8 +68,7 @@ router.use(authMiddleware);
  *                       items:
  *                         $ref: '#/components/schemas/Application'
  *                     pagination:
- *                       type: object
- *                       description: Информация о пагинации
+ *                       $ref: '#/components/schemas/Pagination'
  */
 
 /**
@@ -75,43 +78,13 @@ router.use(authMiddleware);
  *     summary: Создание новой заявки
  *     tags: [Applications]
  *     security:
- *       - BearerAuth: []
+ *       - bearerAuth: []
  *     requestBody:
  *       required: true
  *       content:
  *         application/json:
  *           schema:
- *             type: object
- *             required:
- *               - title
- *               - serviceType
- *             properties:
- *               title:
- *                 type: string
- *                 description: Название заявки
- *               description:
- *                 type: string
- *                 description: Описание заявки
- *               serviceType:
- *                 type: string
- *                 enum: [landing, corporate, ecommerce, web_app, redesign, other]
- *                 description: Тип услуги
- *               contactFullName:
- *                 type: string
- *                 description: Контактное лицо
- *               contactEmail:
- *                 type: string
- *                 description: Контактный email
- *               contactPhone:
- *                 type: string
- *                 description: Контактный телефон
- *               companyName:
- *                 type: string
- *                 description: Название компании
- *               budgetRange:
- *                 type: string
- *                 enum: [under_50k, from_50k_to_100k, from_100k_to_300k, from_300k_to_500k, negotiable]
- *                 description: Бюджетный диапазон
+ *             $ref: '#/components/schemas/CreateApplicationRequest'
  *     responses:
  *       201:
  *         description: Заявка успешно создана
@@ -129,6 +102,8 @@ router.use(authMiddleware);
  *                   properties:
  *                     application:
  *                       $ref: '#/components/schemas/Application'
+ *       400:
+ *         description: Ошибка валидации
  */
 
 /**
@@ -138,7 +113,7 @@ router.use(authMiddleware);
  *     summary: Получение заявки по ID
  *     tags: [Applications]
  *     security:
- *       - BearerAuth: []
+ *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: id
@@ -172,7 +147,7 @@ router.use(authMiddleware);
  *     summary: Обновление заявки
  *     tags: [Applications]
  *     security:
- *       - BearerAuth: []
+ *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: id
@@ -184,7 +159,7 @@ router.use(authMiddleware);
  *       content:
  *         application/json:
  *           schema:
- *             $ref: '#/components/schemas/Application'
+ *             $ref: '#/components/schemas/UpdateApplicationRequest'
  *     responses:
  *       200:
  *         description: Заявка успешно обновлена
@@ -202,6 +177,10 @@ router.use(authMiddleware);
  *                   properties:
  *                     application:
  *                       $ref: '#/components/schemas/Application'
+ *       400:
+ *         description: Ошибка валидации
+ *       404:
+ *         description: Заявка не найдена
  */
 
 /**
@@ -211,7 +190,7 @@ router.use(authMiddleware);
  *     summary: Удаление заявки
  *     tags: [Applications]
  *     security:
- *       - BearerAuth: []
+ *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: id
@@ -231,6 +210,8 @@ router.use(authMiddleware);
  *                   type: boolean
  *                 message:
  *                   type: string
+ *       404:
+ *         description: Заявка не найдена
  */
 
 /**
@@ -240,7 +221,7 @@ router.use(authMiddleware);
  *     summary: Отправка заявки на рассмотрение
  *     tags: [Applications]
  *     security:
- *       - BearerAuth: []
+ *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: id
@@ -250,7 +231,7 @@ router.use(authMiddleware);
  *         description: ID заявки
  *     responses:
  *       200:
- *         description: Заявка отправлена на рассмотрение
+ *         description: Заявка успешно отправлена
  *         content:
  *           application/json:
  *             schema:
@@ -265,16 +246,20 @@ router.use(authMiddleware);
  *                   properties:
  *                     application:
  *                       $ref: '#/components/schemas/Application'
+ *       400:
+ *         description: Ошибка валидации
+ *       404:
+ *         description: Заявка не найдена
  */
 
 /**
  * @swagger
  * /applications/{id}/transitions:
  *   get:
- *     summary: Получение доступных переходов статуса
+ *     summary: Получение доступных переходов статуса для заявки
  *     tags: [Applications]
  *     security:
- *       - BearerAuth: []
+ *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: id
@@ -297,6 +282,8 @@ router.use(authMiddleware);
  *                   properties:
  *                     current_status:
  *                       type: string
+ *                     current_status_display:
+ *                       type: string
  *                     available_transitions:
  *                       type: array
  *                       items:
@@ -306,6 +293,8 @@ router.use(authMiddleware);
  *                             type: string
  *                           label:
  *                             type: string
+ *       404:
+ *         description: Заявка не найдена
  */
 
 /**
@@ -315,7 +304,7 @@ router.use(authMiddleware);
  *     summary: Загрузка файла к заявке
  *     tags: [Applications]
  *     security:
- *       - BearerAuth: []
+ *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: id
@@ -335,7 +324,7 @@ router.use(authMiddleware);
  *                 description: Файл для загрузки
  *               category:
  *                 type: string
- *                 enum: [technical_specification, design_mockup, content, other]
+ *                 enum: [technical_spec, design_reference, content, other]
  *                 description: Категория файла
  *               description:
  *                 type: string
@@ -360,12 +349,29 @@ router.use(authMiddleware);
  *                       properties:
  *                         id:
  *                           type: string
+ *                         filename:
+ *                           type: string
  *                         original_name:
+ *                           type: string
+ *                         mime_type:
  *                           type: string
  *                         size:
  *                           type: integer
- *                         mime_type:
+ *                         size_formatted:
  *                           type: string
+ *                         file_category:
+ *                           type: string
+ *                         description:
+ *                           type: string
+ *                         uploaded_at:
+ *                           type: string
+ *                           format: date-time
+ *                         is_image:
+ *                           type: boolean
+ *                         is_document:
+ *                           type: boolean
+ *       400:
+ *         description: Ошибка валидации
  */
 
 /**
@@ -375,7 +381,7 @@ router.use(authMiddleware);
  *     summary: Получение файлов заявки
  *     tags: [Applications]
  *     security:
- *       - BearerAuth: []
+ *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: id
@@ -405,14 +411,53 @@ router.use(authMiddleware);
  *                             type: string
  *                           original_name:
  *                             type: string
- *                           size:
- *                             type: integer
- *                           mime_type:
+ *                           file_category:
  *                             type: string
  *                           uploaded_at:
  *                             type: string
  *                             format: date-time
+ *                           size:
+ *                             type: integer
+ *                           mime_type:
+ *                             type: string
+ *                           uploader:
+ *                             $ref: '#/components/schemas/User'
  */
+
+/**
+ * @swagger
+ * /applications/files/{fileId}:
+ *   delete:
+ *     summary: Удаление файла заявки
+ *     tags: [Applications]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: fileId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID файла
+ *     responses:
+ *       200:
+ *         description: Файл успешно удален
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 message:
+ *                   type: string
+ *       404:
+ *         description: Файл не найден
+ */
+
+
+// Все маршруты требуют аутентификации
+router.use(authMiddleware);
 
 router.get('/', ApplicationController.getAll);
 router.post('/', createApplicationValidation, ApplicationController.create);

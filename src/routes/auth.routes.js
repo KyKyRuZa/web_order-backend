@@ -21,14 +21,52 @@ const {
  *       content:
  *         application/json:
  *           schema:
- *             $ref: '#/components/schemas/RegisterRequest'
+ *             type: object
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 description: Email пользователя
+ *                 example: user@example.com
+ *               password:
+ *                 type: string
+ *                 description: Пароль пользователя
+ *                 example: password123
+ *               fullName:
+ *                 type: string
+ *                 description: Полное имя пользователя
+ *                 example: Иван Иванов
+ *               phone:
+ *                 type: string
+ *                 description: Телефон пользователя
+ *                 example: +79991234567
+ *               companyName:
+ *                 type: string
+ *                 description: Название компании
+ *                 example: ООО "Рога и копыта"
  *     responses:
  *       201:
  *         description: Пользователь успешно зарегистрирован
  *         content:
  *           application/json:
  *             schema:
- *               $ref: '#/components/schemas/AuthResponse'
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 message:
+ *                   type: string
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     user:
+ *                       $ref: '#/components/schemas/User'
+ *                     tokens:
+ *                       type: object
+ *                       properties:
+ *                         accessToken:
+ *                           type: string
+ *                         refreshToken:
+ *                           type: string
  *       400:
  *         description: Ошибка валидации или пользователь уже существует
  */
@@ -37,25 +75,128 @@ const {
  * @swagger
  * /auth/login:
  *   post:
- *     summary: Вход пользователя
+ *     summary: Вход в систему
  *     tags: [Auth]
  *     requestBody:
  *       required: true
  *       content:
  *         application/json:
  *           schema:
- *             $ref: '#/components/schemas/LoginRequest'
+ *             type: object
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 description: Email пользователя
+ *                 example: user@example.com
+ *               password:
+ *                 type: string
+ *                 description: Пароль пользователя
+ *                 example: password123
  *     responses:
  *       200:
  *         description: Успешный вход
  *         content:
  *           application/json:
  *             schema:
- *               $ref: '#/components/schemas/AuthResponse'
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 message:
+ *                   type: string
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     user:
+ *                       $ref: '#/components/schemas/User'
+ *                     tokens:
+ *                       type: object
+ *                       properties:
+ *                         accessToken:
+ *                           type: string
+ *                         refreshToken:
+ *                           type: string
  *       401:
- *         description: Неверный email или пароль
- *       403:
- *         description: Email не подтвержден или аккаунт деактивирован
+ *         description: Неверные учетные данные
+ */
+
+/**
+ * @swagger
+ * /auth/logout:
+ *   post:
+ *     summary: Выход из системы
+ *     tags: [Auth]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Успешный выход
+ */
+
+/**
+ * @swagger
+ * /auth/profile:
+ *   get:
+ *     summary: Получение профиля пользователя
+ *     tags: [Auth]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Профиль пользователя
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     user:
+ *                       $ref: '#/components/schemas/User'
+ *       401:
+ *         description: Неавторизованный доступ
+ */
+
+/**
+ * @swagger
+ * /auth/change-password:
+ *   put:
+ *     summary: Изменение пароля
+ *     tags: [Auth]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               currentPassword:
+ *                 type: string
+ *                 description: Текущий пароль
+ *                 example: oldpassword123
+ *               newPassword:
+ *                 type: string
+ *                 description: Новый пароль
+ *                 example: newpassword123
+ *     responses:
+ *       200:
+ *         description: Пароль успешно изменен
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 message:
+ *                   type: string
+ *       400:
+ *         description: Ошибка валидации
  */
 
 /**
@@ -74,8 +215,7 @@ const {
  *               refreshToken:
  *                 type: string
  *                 description: Refresh токен
- *             required:
- *               - refreshToken
+ *                 example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
  *     responses:
  *       200:
  *         description: Токены успешно обновлены
@@ -94,9 +234,7 @@ const {
  *                     refreshToken:
  *                       type: string
  *       400:
- *         description: Refresh token обязателен
- *       401:
- *         description: Недействительный refresh token
+ *         description: Ошибка валидации
  */
 
 /**
@@ -125,14 +263,14 @@ const {
  *                 message:
  *                   type: string
  *       400:
- *         description: Недействительный токен верификации
+ *         description: Неверный токен
  */
 
 /**
  * @swagger
  * /auth/forgot-password:
  *   post:
- *     summary: Восстановление пароля
+ *     summary: Запрос на восстановление пароля
  *     tags: [Auth]
  *     requestBody:
  *       required: true
@@ -143,12 +281,12 @@ const {
  *             properties:
  *               email:
  *                 type: string
+ *                 format: email
  *                 description: Email пользователя
- *             required:
- *               - email
+ *                 example: user@example.com
  *     responses:
  *       200:
- *         description: Инструкция по сбросу пароля отправлена
+ *         description: Инструкции по восстановлению пароля отправлены
  *         content:
  *           application/json:
  *             schema:
@@ -183,8 +321,7 @@ const {
  *               password:
  *                 type: string
  *                 description: Новый пароль
- *             required:
- *               - password
+ *                 example: newpassword123
  *     responses:
  *       200:
  *         description: Пароль успешно изменен
@@ -198,65 +335,7 @@ const {
  *                 message:
  *                   type: string
  *       400:
- *         description: Недействительный или просроченный токен
- */
-
-// Публичные маршруты
-router.post('/register', registerValidation, AuthController.register);
-router.post('/login', loginValidation, AuthController.login);
-router.post('/refresh-token', AuthController.refreshToken);
-router.get('/verify-email/:token', AuthController.verifyEmail);
-router.post('/forgot-password', AuthController.forgotPassword);
-router.post('/reset-password/:token', AuthController.resetPassword);
-
-// Защищенные маршруты (требуют аутентификации)
-router.use(authMiddleware);
-
-/**
- * @swagger
- * /auth/logout:
- *   post:
- *     summary: Выход пользователя
- *     tags: [Auth]
- *     security:
- *       - BearerAuth: []
- *     responses:
- *       200:
- *         description: Успешный выход
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                 message:
- *                   type: string
- */
-
-/**
- * @swagger
- * /auth/profile:
- *   get:
- *     summary: Получение профиля пользователя
- *     tags: [Auth]
- *     security:
- *       - BearerAuth: []
- *     responses:
- *       200:
- *         description: Профиль пользователя
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                 data:
- *                   type: object
- *                   properties:
- *                     user:
- *                       $ref: '#/components/schemas/User'
+ *         description: Ошибка валидации
  */
 
 /**
@@ -266,9 +345,8 @@ router.use(authMiddleware);
  *     summary: Обновление профиля пользователя
  *     tags: [Auth]
  *     security:
- *       - BearerAuth: []
+ *       - bearerAuth: []
  *     requestBody:
- *       required: true
  *       content:
  *         application/json:
  *           schema:
@@ -276,13 +354,16 @@ router.use(authMiddleware);
  *             properties:
  *               full_name:
  *                 type: string
- *                 description: Полное имя
+ *                 description: Полное имя пользователя
+ *                 example: Иван Иванов
  *               phone:
  *                 type: string
- *                 description: Телефон
+ *                 description: Телефон пользователя
+ *                 example: +79991234567
  *               company_name:
  *                 type: string
  *                 description: Название компании
+ *                 example: ООО "Рога и копыта"
  *     responses:
  *       200:
  *         description: Профиль успешно обновлен
@@ -296,45 +377,12 @@ router.use(authMiddleware);
  *                 message:
  *                   type: string
  *                 data:
- *                   $ref: '#/components/schemas/User'
- */
-
-/**
- * @swagger
- * /auth/change-password:
- *   put:
- *     summary: Изменение пароля
- *     tags: [Auth]
- *     security:
- *       - BearerAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               currentPassword:
- *                 type: string
- *                 description: Текущий пароль
- *               newPassword:
- *                 type: string
- *                 description: Новый пароль
- *             required:
- *               - currentPassword
- *               - newPassword
- *     responses:
- *       200:
- *         description: Пароль успешно изменен
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                 message:
- *                   type: string
+ *                   type: object
+ *                   properties:
+ *                     user:
+ *                       $ref: '#/components/schemas/User'
+ *       400:
+ *         description: Ошибка валидации
  */
 
 /**
@@ -344,7 +392,23 @@ router.use(authMiddleware);
  *     summary: Получение заявок пользователя
  *     tags: [Auth]
  *     security:
- *       - BearerAuth: []
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *         description: Фильтр по статусу заявки
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *         description: Номер страницы
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *         description: Количество элементов на странице
  *     responses:
  *       200:
  *         description: Список заявок пользователя
@@ -362,6 +426,8 @@ router.use(authMiddleware);
  *                       type: array
  *                       items:
  *                         $ref: '#/components/schemas/Application'
+ *                     pagination:
+ *                       $ref: '#/components/schemas/Pagination'
  */
 
 /**
@@ -371,7 +437,7 @@ router.use(authMiddleware);
  *     summary: Получение статистики пользователя
  *     tags: [Auth]
  *     security:
- *       - BearerAuth: []
+ *       - bearerAuth: []
  *     responses:
  *       200:
  *         description: Статистика пользователя
@@ -387,7 +453,6 @@ router.use(authMiddleware);
  *                   properties:
  *                     stats:
  *                       type: object
- *                       description: Статистика пользователя
  */
 
 /**
@@ -397,7 +462,7 @@ router.use(authMiddleware);
  *     summary: Деактивация аккаунта
  *     tags: [Auth]
  *     security:
- *       - BearerAuth: []
+ *       - bearerAuth: []
  *     responses:
  *       200:
  *         description: Аккаунт успешно деактивирован
@@ -411,6 +476,18 @@ router.use(authMiddleware);
  *                 message:
  *                   type: string
  */
+
+
+// Публичные маршруты
+router.post('/register', registerValidation, AuthController.register);
+router.post('/login', loginValidation, AuthController.login);
+router.post('/refresh-token', AuthController.refreshToken);
+router.get('/verify-email/:token', AuthController.verifyEmail);
+router.post('/forgot-password', AuthController.forgotPassword);
+router.post('/reset-password/:token', AuthController.resetPassword);
+
+// Защищенные маршруты (требуют аутентификации)
+router.use(authMiddleware);
 
 router.post('/logout', AuthController.logout);
 router.get('/profile', AuthController.getProfile);

@@ -1,0 +1,3379 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "WebDev Orders API",
+    "version": "1.0.0",
+    "description": "API документация для системы управления заявками на веб-разработку"
+  },
+  "servers": [
+    {
+      "url": "http://localhost:5000/api",
+      "description": "Development server"
+    },
+    {
+      "url": "https://api.webdev-orders.com",
+      "description": "Production server"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    },
+    "schemas": {
+      "AuditLog": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Уникальный идентификатор лога",
+            "example": "123e4567-e89b-12d3-a456-426614174004"
+          },
+          "action": {
+            "type": "string",
+            "description": "Выполненное действие",
+            "example": "application_create"
+          },
+          "user_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "ID пользователя, совершившего действие",
+            "example": "123e4567-e89b-12d3-a456-426614174001"
+          },
+          "target_entity": {
+            "type": "string",
+            "description": "Сущность, к которой применяется действие",
+            "example": "application"
+          },
+          "target_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "ID целевой сущности",
+            "example": "123e4567-e89b-12d3-a456-426614174000"
+          },
+          "old_value": {
+            "type": "object",
+            "description": "Старое значение (если применимо)"
+          },
+          "new_value": {
+            "type": "object",
+            "description": "Новое значение (если применимо)"
+          },
+          "ip_address": {
+            "type": "string",
+            "description": "IP-адрес пользователя",
+            "example": "192.168.1.1"
+          },
+          "user_agent": {
+            "type": "string",
+            "description": "User agent пользователя",
+            "example": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Дата создания лога",
+            "example": "2023-01-01T00:00:00.000Z"
+          }
+        }
+      },
+      "Note": {
+        "type": "object",
+        "required": [
+          "content"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Уникальный идентификатор заметки",
+            "example": "123e4567-e89b-12d3-a456-426614174003"
+          },
+          "application_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "ID заявки, к которой относится заметка",
+            "example": "123e4567-e89b-12d3-a456-426614174000"
+          },
+          "author_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "ID автора заметки",
+            "example": "123e4567-e89b-12d3-a456-426614174001"
+          },
+          "content": {
+            "type": "string",
+            "description": "Содержание заметки",
+            "example": "Необходимо уточнить требования к дизайну"
+          },
+          "note_type": {
+            "type": "string",
+            "enum": [
+              "internal",
+              "comment",
+              "system",
+              "change_log"
+            ],
+            "description": "Тип заметки",
+            "example": "internal"
+          },
+          "is_pinned": {
+            "type": "boolean",
+            "description": "Закреплена ли заметка",
+            "example": false
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Дата создания заметки",
+            "example": "2023-01-01T00:00:00.000Z"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Дата последнего обновления",
+            "example": "2023-01-01T00:00:00.000Z"
+          }
+        }
+      },
+      "Application": {
+        "type": "object",
+        "required": [
+          "title",
+          "service_type",
+          "contact_email"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Уникальный идентификатор заявки",
+            "example": "123e4567-e89b-12d3-a456-426614174000"
+          },
+          "user_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "ID пользователя, создавшего заявку",
+            "example": "123e4567-e89b-12d3-a456-426614174001"
+          },
+          "title": {
+            "type": "string",
+            "description": "Название заявки",
+            "example": "Создание корпоративного сайта"
+          },
+          "description": {
+            "type": "string",
+            "description": "Описание заявки",
+            "example": "Необходимо создать современный корпоративный сайт с CMS"
+          },
+          "service_type": {
+            "type": "string",
+            "enum": [
+              "landing_page",
+              "corporate_site",
+              "ecommerce",
+              "web_application",
+              "other"
+            ],
+            "description": "Тип услуги",
+            "example": "corporate_site"
+          },
+          "contact_email": {
+            "type": "string",
+            "format": "email",
+            "description": "Контактный email",
+            "example": "client@example.com"
+          },
+          "contact_phone": {
+            "type": "string",
+            "description": "Контактный телефон",
+            "example": 79991234567
+          },
+          "company_name": {
+            "type": "string",
+            "description": "Название компании клиента",
+            "example": "ООО \"Рога и копыта\""
+          },
+          "expected_budget": {
+            "type": "integer",
+            "description": "Ожидаемый бюджет в рублях",
+            "example": 150000
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "submitted",
+              "in_review",
+              "approved",
+              "in_progress",
+              "completed",
+              "cancelled",
+              "rejected"
+            ],
+            "description": "Статус заявки",
+            "example": "draft"
+          },
+          "priority": {
+            "type": "string",
+            "enum": [
+              "low",
+              "normal",
+              "high",
+              "urgent"
+            ],
+            "description": "Приоритет заявки",
+            "example": "normal"
+          },
+          "assigned_to": {
+            "type": "string",
+            "format": "uuid",
+            "description": "ID менеджера, назначенного на заявку",
+            "example": "123e4567-e89b-12d3-a456-426614174002"
+          },
+          "submitted_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Дата подачи заявки",
+            "example": "2023-01-01T00:00:00.000Z"
+          },
+          "deadline": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Крайний срок выполнения",
+            "example": "2023-02-01T00:00:00.000Z"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Дата создания заявки",
+            "example": "2023-01-01T00:00:00.000Z"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Дата последнего обновления",
+            "example": "2023-01-01T00:00:00.000Z"
+          }
+        }
+      },
+      "CreateApplicationRequest": {
+        "type": "object",
+        "required": [
+          "title",
+          "service_type",
+          "contact_full_name",
+          "contact_email",
+          "contact_phone"
+        ],
+        "properties": {
+          "title": {
+            "type": "string",
+            "description": "Название заявки",
+            "example": "Создание корпоративного сайта"
+          },
+          "description": {
+            "type": "string",
+            "description": "Описание заявки",
+            "example": "Необходимо создать современный корпоративный сайт с CMS"
+          },
+          "service_type": {
+            "type": "string",
+            "enum": [
+              "landing_page",
+              "corporate_site",
+              "ecommerce",
+              "web_application",
+              "other"
+            ],
+            "description": "Тип услуги",
+            "example": "corporate_site"
+          },
+          "contact_full_name": {
+            "type": "string",
+            "description": "Контактное имя",
+            "example": "Иван Иванов"
+          },
+          "contact_email": {
+            "type": "string",
+            "format": "email",
+            "description": "Контактный email",
+            "example": "client@example.com"
+          },
+          "contact_phone": {
+            "type": "string",
+            "description": "Контактный телефон",
+            "example": 79991234567
+          },
+          "company_name": {
+            "type": "string",
+            "description": "Название компании клиента",
+            "example": "ООО \"Рога и копыта\""
+          },
+          "expected_budget": {
+            "type": "integer",
+            "description": "Ожидаемый бюджет в рублях",
+            "example": 150000
+          }
+        }
+      },
+      "UpdateApplicationRequest": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "description": "Название заявки"
+          },
+          "description": {
+            "type": "string",
+            "description": "Описание заявки"
+          },
+          "service_type": {
+            "type": "string",
+            "enum": [
+              "landing_page",
+              "corporate_site",
+              "ecommerce",
+              "web_application",
+              "other"
+            ],
+            "description": "Тип услуги"
+          },
+          "contact_full_name": {
+            "type": "string",
+            "description": "Контактное имя"
+          },
+          "contact_email": {
+            "type": "string",
+            "format": "email",
+            "description": "Контактный email"
+          },
+          "contact_phone": {
+            "type": "string",
+            "description": "Контактный телефон"
+          },
+          "company_name": {
+            "type": "string",
+            "description": "Название компании клиента"
+          },
+          "expected_budget": {
+            "type": "integer",
+            "description": "Ожидаемый бюджет в рублях"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "submitted",
+              "in_review",
+              "approved",
+              "in_progress",
+              "completed",
+              "cancelled",
+              "rejected"
+            ],
+            "description": "Статус заявки"
+          }
+        }
+      },
+      "Pagination": {
+        "type": "object",
+        "properties": {
+          "total": {
+            "type": "integer",
+            "description": "Общее количество элементов",
+            "example": 100
+          },
+          "page": {
+            "type": "integer",
+            "description": "Номер текущей страницы",
+            "example": 1
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Количество элементов на странице",
+            "example": 10
+          },
+          "pages": {
+            "type": "integer",
+            "description": "Общее количество страниц",
+            "example": 10
+          },
+          "has_next": {
+            "type": "boolean",
+            "description": "Есть ли следующая страница",
+            "example": true
+          },
+          "has_prev": {
+            "type": "boolean",
+            "description": "Есть ли предыдущая страница",
+            "example": false
+          }
+        }
+      },
+      "User": {
+        "type": "object",
+        "required": [
+          "email",
+          "full_name"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Уникальный идентификатор пользователя",
+            "example": "123e4567-e89b-12d3-a456-426614174000"
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "description": "Email пользователя",
+            "example": "user@example.com"
+          },
+          "full_name": {
+            "type": "string",
+            "description": "Полное имя пользователя",
+            "example": "Иван Иванов"
+          },
+          "phone": {
+            "type": "string",
+            "description": "Телефон пользователя",
+            "example": 79991234567
+          },
+          "company_name": {
+            "type": "string",
+            "description": "Название компании",
+            "example": "ООО \"Рога и копыта\""
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "client",
+              "manager",
+              "admin",
+              "super_admin"
+            ],
+            "description": "Роль пользователя в системе",
+            "example": "client"
+          },
+          "is_email_verified": {
+            "type": "boolean",
+            "description": "Подтвержден ли email",
+            "example": true
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Дата создания пользователя",
+            "example": "2023-01-01T00:00:00.000Z"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Дата последнего обновления",
+            "example": "2023-01-01T00:00:00.000Z"
+          }
+        }
+      }
+    }
+  },
+  "paths": {
+    "/admin/applications": {
+      "get": {
+        "summary": "Получение списка заявок с фильтрацией",
+        "tags": [
+          "Admin"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "status",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Фильтр по статусу заявки"
+          },
+          {
+            "in": "query",
+            "name": "service_type",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Фильтр по типу услуги"
+          },
+          {
+            "in": "query",
+            "name": "priority",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Фильтр по приоритету"
+          },
+          {
+            "in": "query",
+            "name": "assigned_to",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Фильтр по назначенным менеджерам"
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "type": "integer"
+            },
+            "description": "Номер страницы"
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "type": "integer"
+            },
+            "description": "Количество элементов на странице"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Список заявок",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "applications": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/Application"
+                          }
+                        },
+                        "pagination": {
+                          "$ref": "#/components/schemas/Pagination"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/applications/{id}": {
+      "get": {
+        "summary": "Получение детальной информации о заявке",
+        "tags": [
+          "Admin"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "ID заявки"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Детальная информация о заявке",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "application": {
+                          "$ref": "#/components/schemas/Application"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Заявка не найдена"
+          }
+        }
+      }
+    },
+    "/admin/applications/{id}/status": {
+      "put": {
+        "summary": "Изменение статуса заявки",
+        "tags": [
+          "Admin"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "ID заявки"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "draft",
+                      "submitted",
+                      "in_review",
+                      "approved",
+                      "in_progress",
+                      "completed",
+                      "cancelled",
+                      "rejected"
+                    ],
+                    "description": "Новый статус заявки"
+                  },
+                  "comment": {
+                    "type": "string",
+                    "description": "Комментарий к изменению статуса"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Статус заявки успешно изменен",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "application": {
+                          "$ref": "#/components/schemas/Application"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Ошибка валидации"
+          },
+          "404": {
+            "description": "Заявка не найдена"
+          }
+        }
+      }
+    },
+    "/admin/users": {
+      "get": {
+        "summary": "Получение списка пользователей",
+        "tags": [
+          "Admin"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "role",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Фильтр по роли пользователя"
+          },
+          {
+            "in": "query",
+            "name": "is_active",
+            "schema": {
+              "type": "boolean"
+            },
+            "description": "Фильтр по активности пользователя"
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "type": "integer"
+            },
+            "description": "Номер страницы"
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "type": "integer"
+            },
+            "description": "Количество элементов на странице"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Список пользователей",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "users": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/User"
+                          }
+                        },
+                        "pagination": {
+                          "$ref": "#/components/schemas/Pagination"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/applications/{id}/reset-to-draft": {
+      "post": {
+        "summary": "Возврат заявки в черновик",
+        "tags": [
+          "Admin"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "ID заявки"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Заявка успешно возвращена в черновик",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "application": {
+                          "$ref": "#/components/schemas/Application"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Ошибка валидации"
+          },
+          "404": {
+            "description": "Заявка не найдена"
+          }
+        }
+      }
+    },
+    "/admin/applications/{id}/assign": {
+      "put": {
+        "summary": "Назначение менеджера на заявку",
+        "tags": [
+          "Admin"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "ID заявки"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "manager_id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "description": "ID менеджера",
+                    "example": "123e4567-e89b-12d3-a456-426614174002"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Менеджер успешно назначен",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "application_id": {
+                          "type": "string"
+                        },
+                        "old_manager_id": {
+                          "type": "string"
+                        },
+                        "new_manager": {
+                          "$ref": "#/components/schemas/User"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Ошибка валидации"
+          },
+          "404": {
+            "description": "Заявка или менеджер не найдены"
+          }
+        }
+      }
+    },
+    "/admin/applications/{id}/notes": {
+      "post": {
+        "summary": "Добавление внутренней заметки к заявке",
+        "tags": [
+          "Admin"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "ID заявки"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "note": {
+                    "type": "string",
+                    "description": "Содержание заметки",
+                    "example": "Важное замечание по заявке"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Заметка успешно добавлена",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "note": {
+                          "$ref": "#/components/schemas/Note"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Ошибка валидации"
+          }
+        }
+      }
+    },
+    "/admin/users/{id}/role": {
+      "put": {
+        "summary": "Изменение роли пользователя",
+        "tags": [
+          "Admin"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "ID пользователя"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "role": {
+                    "type": "string",
+                    "enum": [
+                      "client",
+                      "manager",
+                      "admin",
+                      "super_admin"
+                    ],
+                    "description": "Новая роль пользователя",
+                    "example": "manager"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Роль пользователя успешно изменена",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "user": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string"
+                            },
+                            "email": {
+                              "type": "string"
+                            },
+                            "full_name": {
+                              "type": "string"
+                            },
+                            "old_role": {
+                              "type": "string"
+                            },
+                            "new_role": {
+                              "type": "string"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Ошибка валидации"
+          },
+          "404": {
+            "description": "Пользователь не найден"
+          }
+        }
+      }
+    },
+    "/admin/stats/dashboard": {
+      "get": {
+        "summary": "Получение статистики для дашборда",
+        "tags": [
+          "Admin"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Статистика для дашборда",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "stats": {
+                          "type": "object"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/applications": {
+      "get": {
+        "summary": "Получение списка заявок",
+        "tags": [
+          "Applications"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "status",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Фильтр по статусу заявки"
+          },
+          {
+            "in": "query",
+            "name": "service_type",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Фильтр по типу услуги"
+          },
+          {
+            "in": "query",
+            "name": "priority",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Фильтр по приоритету"
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "type": "integer"
+            },
+            "description": "Номер страницы"
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "type": "integer"
+            },
+            "description": "Количество элементов на странице"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Список заявок",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "applications": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/Application"
+                          }
+                        },
+                        "pagination": {
+                          "$ref": "#/components/schemas/Pagination"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Создание новой заявки",
+        "tags": [
+          "Applications"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateApplicationRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Заявка успешно создана",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "application": {
+                          "$ref": "#/components/schemas/Application"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Ошибка валидации"
+          }
+        }
+      }
+    },
+    "/applications/{id}": {
+      "get": {
+        "summary": "Получение заявки по ID",
+        "tags": [
+          "Applications"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "ID заявки"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Информация о заявке",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "application": {
+                          "$ref": "#/components/schemas/Application"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Заявка не найдена"
+          }
+        }
+      },
+      "put": {
+        "summary": "Обновление заявки",
+        "tags": [
+          "Applications"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "ID заявки"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateApplicationRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Заявка успешно обновлена",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "application": {
+                          "$ref": "#/components/schemas/Application"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Ошибка валидации"
+          },
+          "404": {
+            "description": "Заявка не найдена"
+          }
+        }
+      },
+      "delete": {
+        "summary": "Удаление заявки",
+        "tags": [
+          "Applications"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "ID заявки"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Заявка успешно удалена",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Заявка не найдена"
+          }
+        }
+      }
+    },
+    "/applications/{id}/submit": {
+      "post": {
+        "summary": "Отправка заявки на рассмотрение",
+        "tags": [
+          "Applications"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "ID заявки"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Заявка успешно отправлена",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "application": {
+                          "$ref": "#/components/schemas/Application"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Ошибка валидации"
+          },
+          "404": {
+            "description": "Заявка не найдена"
+          }
+        }
+      }
+    },
+    "/applications/{id}/transitions": {
+      "get": {
+        "summary": "Получение доступных переходов статуса для заявки",
+        "tags": [
+          "Applications"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "ID заявки"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Доступные переходы статуса",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "current_status": {
+                          "type": "string"
+                        },
+                        "current_status_display": {
+                          "type": "string"
+                        },
+                        "available_transitions": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "value": {
+                                "type": "string"
+                              },
+                              "label": {
+                                "type": "string"
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Заявка не найдена"
+          }
+        }
+      }
+    },
+    "/applications/{id}/files": {
+      "post": {
+        "summary": "Загрузка файла к заявке",
+        "tags": [
+          "Applications"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "ID заявки"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "Файл для загрузки"
+                  },
+                  "category": {
+                    "type": "string",
+                    "enum": [
+                      "technical_spec",
+                      "design_reference",
+                      "content",
+                      "other"
+                    ],
+                    "description": "Категория файла"
+                  },
+                  "description": {
+                    "type": "string",
+                    "description": "Описание файла"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Файл успешно загружен",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "file": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string"
+                            },
+                            "filename": {
+                              "type": "string"
+                            },
+                            "original_name": {
+                              "type": "string"
+                            },
+                            "mime_type": {
+                              "type": "string"
+                            },
+                            "size": {
+                              "type": "integer"
+                            },
+                            "size_formatted": {
+                              "type": "string"
+                            },
+                            "file_category": {
+                              "type": "string"
+                            },
+                            "description": {
+                              "type": "string"
+                            },
+                            "uploaded_at": {
+                              "type": "string",
+                              "format": "date-time"
+                            },
+                            "is_image": {
+                              "type": "boolean"
+                            },
+                            "is_document": {
+                              "type": "boolean"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Ошибка валидации"
+          }
+        }
+      },
+      "get": {
+        "summary": "Получение файлов заявки",
+        "tags": [
+          "Applications"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "ID заявки"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Список файлов заявки",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "files": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "original_name": {
+                                "type": "string"
+                              },
+                              "file_category": {
+                                "type": "string"
+                              },
+                              "uploaded_at": {
+                                "type": "string",
+                                "format": "date-time"
+                              },
+                              "size": {
+                                "type": "integer"
+                              },
+                              "mime_type": {
+                                "type": "string"
+                              },
+                              "uploader": {
+                                "$ref": "#/components/schemas/User"
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/applications/files/{fileId}": {
+      "delete": {
+        "summary": "Удаление файла заявки",
+        "tags": [
+          "Applications"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "fileId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "ID файла"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Файл успешно удален",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Файл не найден"
+          }
+        }
+      }
+    },
+    "/audit/logs": {
+      "get": {
+        "summary": "Получение логов аудита с фильтрацией",
+        "tags": [
+          "Audit"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "action",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Фильтр по действию"
+          },
+          {
+            "in": "query",
+            "name": "userId",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Фильтр по ID пользователя"
+          },
+          {
+            "in": "query",
+            "name": "targetEntity",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Фильтр по типу целевой сущности"
+          },
+          {
+            "in": "query",
+            "name": "targetId",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Фильтр по ID целевой сущности"
+          },
+          {
+            "in": "query",
+            "name": "dateFrom",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "description": "Фильтр по дате начала"
+          },
+          {
+            "in": "query",
+            "name": "dateTo",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "description": "Фильтр по дате окончания"
+          },
+          {
+            "in": "query",
+            "name": "severity",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Фильтр по уровню критичности"
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "type": "integer"
+            },
+            "description": "Номер страницы"
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "type": "integer"
+            },
+            "description": "Количество элементов на странице"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Список логов аудита",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "logs": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/AuditLog"
+                          }
+                        },
+                        "pagination": {
+                          "$ref": "#/components/schemas/Pagination"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/audit/logs/{id}": {
+      "get": {
+        "summary": "Получение конкретного лога по ID",
+        "tags": [
+          "Audit"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "ID лога"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Конкретный лог аудита",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "log": {
+                          "$ref": "#/components/schemas/AuditLog"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Лог не найден"
+          }
+        }
+      }
+    },
+    "/audit/users/{userId}": {
+      "get": {
+        "summary": "Получение логов для конкретного пользователя",
+        "tags": [
+          "Audit"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "userId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "ID пользователя"
+          },
+          {
+            "in": "query",
+            "name": "action",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Фильтр по действию"
+          },
+          {
+            "in": "query",
+            "name": "dateFrom",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "description": "Фильтр по дате начала"
+          },
+          {
+            "in": "query",
+            "name": "dateTo",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "description": "Фильтр по дате окончания"
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "type": "integer"
+            },
+            "description": "Номер страницы"
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "type": "integer"
+            },
+            "description": "Количество элементов на странице"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Логи для конкретного пользователя",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "logs": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/AuditLog"
+                          }
+                        },
+                        "pagination": {
+                          "$ref": "#/components/schemas/Pagination"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/audit/entities/{entity}/{entityId}": {
+      "get": {
+        "summary": "Получение логов для конкретной сущности",
+        "tags": [
+          "Audit"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "entity",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Тип сущности (application, user, note, file)"
+          },
+          {
+            "in": "path",
+            "name": "entityId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "ID сущности"
+          },
+          {
+            "in": "query",
+            "name": "action",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Фильтр по действию"
+          },
+          {
+            "in": "query",
+            "name": "dateFrom",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "description": "Фильтр по дате начала"
+          },
+          {
+            "in": "query",
+            "name": "dateTo",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "description": "Фильтр по дате окончания"
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "type": "integer"
+            },
+            "description": "Номер страницы"
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "type": "integer"
+            },
+            "description": "Количество элементов на странице"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Логи для конкретной сущности",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "logs": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/AuditLog"
+                          }
+                        },
+                        "pagination": {
+                          "$ref": "#/components/schemas/Pagination"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/audit/stats": {
+      "get": {
+        "summary": "Получение статистики аудита",
+        "tags": [
+          "Audit"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Статистика аудита",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "total_logs": {
+                          "type": "integer"
+                        },
+                        "top_actions": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "action": {
+                                "type": "string"
+                              },
+                              "action_description": {
+                                "type": "string"
+                              },
+                              "count": {
+                                "type": "integer"
+                              }
+                            }
+                          }
+                        },
+                        "top_users": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "user": {
+                                "$ref": "#/components/schemas/User"
+                              },
+                              "count": {
+                                "type": "integer"
+                              }
+                            }
+                          }
+                        },
+                        "by_entities": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "entity": {
+                                "type": "string"
+                              },
+                              "count": {
+                                "type": "integer"
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/register": {
+      "post": {
+        "summary": "Регистрация нового пользователя",
+        "tags": [
+          "Auth"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": {
+                    "type": "string",
+                    "description": "Email пользователя",
+                    "example": "user@example.com"
+                  },
+                  "password": {
+                    "type": "string",
+                    "description": "Пароль пользователя",
+                    "example": "password123"
+                  },
+                  "fullName": {
+                    "type": "string",
+                    "description": "Полное имя пользователя",
+                    "example": "Иван Иванов"
+                  },
+                  "phone": {
+                    "type": "string",
+                    "description": "Телефон пользователя",
+                    "example": 79991234567
+                  },
+                  "companyName": {
+                    "type": "string",
+                    "description": "Название компании",
+                    "example": "ООО \"Рога и копыта\""
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Пользователь успешно зарегистрирован",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "user": {
+                          "$ref": "#/components/schemas/User"
+                        },
+                        "tokens": {
+                          "type": "object",
+                          "properties": {
+                            "accessToken": {
+                              "type": "string"
+                            },
+                            "refreshToken": {
+                              "type": "string"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Ошибка валидации или пользователь уже существует"
+          }
+        }
+      }
+    },
+    "/auth/login": {
+      "post": {
+        "summary": "Вход в систему",
+        "tags": [
+          "Auth"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": {
+                    "type": "string",
+                    "description": "Email пользователя",
+                    "example": "user@example.com"
+                  },
+                  "password": {
+                    "type": "string",
+                    "description": "Пароль пользователя",
+                    "example": "password123"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Успешный вход",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "user": {
+                          "$ref": "#/components/schemas/User"
+                        },
+                        "tokens": {
+                          "type": "object",
+                          "properties": {
+                            "accessToken": {
+                              "type": "string"
+                            },
+                            "refreshToken": {
+                              "type": "string"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Неверные учетные данные"
+          }
+        }
+      }
+    },
+    "/auth/logout": {
+      "post": {
+        "summary": "Выход из системы",
+        "tags": [
+          "Auth"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Успешный выход"
+          }
+        }
+      }
+    },
+    "/auth/profile": {
+      "get": {
+        "summary": "Получение профиля пользователя",
+        "tags": [
+          "Auth"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Профиль пользователя",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "user": {
+                          "$ref": "#/components/schemas/User"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Неавторизованный доступ"
+          }
+        }
+      },
+      "put": {
+        "summary": "Обновление профиля пользователя",
+        "tags": [
+          "Auth"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "full_name": {
+                    "type": "string",
+                    "description": "Полное имя пользователя",
+                    "example": "Иван Иванов"
+                  },
+                  "phone": {
+                    "type": "string",
+                    "description": "Телефон пользователя",
+                    "example": 79991234567
+                  },
+                  "company_name": {
+                    "type": "string",
+                    "description": "Название компании",
+                    "example": "ООО \"Рога и копыта\""
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Профиль успешно обновлен",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "user": {
+                          "$ref": "#/components/schemas/User"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Ошибка валидации"
+          }
+        }
+      }
+    },
+    "/auth/change-password": {
+      "put": {
+        "summary": "Изменение пароля",
+        "tags": [
+          "Auth"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "currentPassword": {
+                    "type": "string",
+                    "description": "Текущий пароль",
+                    "example": "oldpassword123"
+                  },
+                  "newPassword": {
+                    "type": "string",
+                    "description": "Новый пароль",
+                    "example": "newpassword123"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Пароль успешно изменен",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Ошибка валидации"
+          }
+        }
+      }
+    },
+    "/auth/refresh-token": {
+      "post": {
+        "summary": "Обновление токена",
+        "tags": [
+          "Auth"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "refreshToken": {
+                    "type": "string",
+                    "description": "Refresh токен",
+                    "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Токены успешно обновлены",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "accessToken": {
+                          "type": "string"
+                        },
+                        "refreshToken": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Ошибка валидации"
+          }
+        }
+      }
+    },
+    "/auth/verify-email/{token}": {
+      "get": {
+        "summary": "Подтверждение email",
+        "tags": [
+          "Auth"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Токен подтверждения email"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Email успешно подтвержден",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Неверный токен"
+          }
+        }
+      }
+    },
+    "/auth/forgot-password": {
+      "post": {
+        "summary": "Запрос на восстановление пароля",
+        "tags": [
+          "Auth"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": {
+                    "type": "string",
+                    "format": "email",
+                    "description": "Email пользователя",
+                    "example": "user@example.com"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Инструкции по восстановлению пароля отправлены",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/reset-password/{token}": {
+      "post": {
+        "summary": "Сброс пароля",
+        "tags": [
+          "Auth"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Токен сброса пароля"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "password": {
+                    "type": "string",
+                    "description": "Новый пароль",
+                    "example": "newpassword123"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Пароль успешно изменен",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Ошибка валидации"
+          }
+        }
+      }
+    },
+    "/auth/applications": {
+      "get": {
+        "summary": "Получение заявок пользователя",
+        "tags": [
+          "Auth"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "status",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Фильтр по статусу заявки"
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "type": "integer"
+            },
+            "description": "Номер страницы"
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "type": "integer"
+            },
+            "description": "Количество элементов на странице"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Список заявок пользователя",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "applications": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/Application"
+                          }
+                        },
+                        "pagination": {
+                          "$ref": "#/components/schemas/Pagination"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/stats": {
+      "get": {
+        "summary": "Получение статистики пользователя",
+        "tags": [
+          "Auth"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Статистика пользователя",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "stats": {
+                          "type": "object"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/deactivate": {
+      "post": {
+        "summary": "Деактивация аккаунта",
+        "tags": [
+          "Auth"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Аккаунт успешно деактивирован",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/notes/applications/{applicationId}/notes": {
+      "post": {
+        "summary": "Создание новой заметки к заявке",
+        "tags": [
+          "Notes"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "applicationId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "ID заявки"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "content": {
+                    "type": "string",
+                    "description": "Содержание заметки",
+                    "example": "Необходимо уточнить требования к дизайну"
+                  },
+                  "note_type": {
+                    "type": "string",
+                    "enum": [
+                      "internal",
+                      "comment",
+                      "system",
+                      "change_log"
+                    ],
+                    "description": "Тип заметки",
+                    "example": "internal"
+                  },
+                  "is_pinned": {
+                    "type": "boolean",
+                    "description": "Закрепить ли заметку",
+                    "example": false
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Заметка успешно создана",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "note": {
+                          "$ref": "#/components/schemas/Note"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Ошибка валидации"
+          }
+        }
+      },
+      "get": {
+        "summary": "Получение всех заметок к заявке",
+        "tags": [
+          "Notes"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "applicationId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "ID заявки"
+          },
+          {
+            "in": "query",
+            "name": "note_type",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Фильтр по типу заметки"
+          },
+          {
+            "in": "query",
+            "name": "is_pinned",
+            "schema": {
+              "type": "boolean"
+            },
+            "description": "Фильтр по статусу закрепления"
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "type": "integer"
+            },
+            "description": "Номер страницы"
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "type": "integer"
+            },
+            "description": "Количество элементов на странице"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Список заметок",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "notes": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/Note"
+                          }
+                        },
+                        "pagination": {
+                          "$ref": "#/components/schemas/Pagination"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/notes/{noteId}": {
+      "get": {
+        "summary": "Получение заметки по ID",
+        "tags": [
+          "Notes"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "noteId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "ID заметки"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Информация о заметке",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "note": {
+                          "$ref": "#/components/schemas/Note"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Заметка не найдена"
+          }
+        }
+      },
+      "put": {
+        "summary": "Обновление заметки",
+        "tags": [
+          "Notes"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "noteId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "ID заметки"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Note"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Заметка успешно обновлена",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "note": {
+                          "$ref": "#/components/schemas/Note"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Ошибка валидации"
+          },
+          "404": {
+            "description": "Заметка не найдена"
+          }
+        }
+      },
+      "delete": {
+        "summary": "Удаление заметки",
+        "tags": [
+          "Notes"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "noteId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "ID заметки"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Заметка успешно удалена",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Ошибка валидации"
+          },
+          "404": {
+            "description": "Заметка не найдена"
+          }
+        }
+      }
+    },
+    "/notes/{noteId}/pin": {
+      "post": {
+        "summary": "Закрепление/открепление заметки",
+        "tags": [
+          "Notes"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "noteId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "ID заметки"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Статус закрепления изменен",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "note": {
+                          "$ref": "#/components/schemas/Note"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Ошибка валидации"
+          },
+          "404": {
+            "description": "Заметка не найдена"
+          }
+        }
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "Applications",
+      "description": "Управление заявками"
+    },
+    {
+      "name": "Auth",
+      "description": "Аутентификация и управление пользователями"
+    },
+    {
+      "name": "Admin",
+      "description": "Административные функции"
+    },
+    {
+      "name": "Notes",
+      "description": "Управление заметками к заявкам"
+    },
+    {
+      "name": "Audit",
+      "description": "Логи аудита"
+    }
+  ]
+}
