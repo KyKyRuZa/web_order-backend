@@ -323,15 +323,15 @@ router.post('/applications/:applicationId/notes', NoteController.create);
 router.get('/applications/:applicationId/notes', NoteController.getByApplication);
 
 // Получение заметки по ID
-router.get('/notes/:noteId', NoteController.getById);
+router.get('/:noteId', NoteController.getById);
 
 // Обновление заметки
-router.put('/notes/:noteId', NoteController.update);
+router.put('/:noteId', NoteController.update);
 
 // Удаление заметки
-router.delete('/notes/:noteId', NoteController.delete);
+router.delete('/:noteId', NoteController.delete);
 
 // Закрепление/открепление заметки
-router.post('/notes/:noteId/pin', NoteController.togglePin);
+router.post('/:noteId/pin', NoteController.togglePin);
 
 module.exports = router;

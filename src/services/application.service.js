@@ -290,10 +290,13 @@ class ApplicationService {
   static async update(id, userId, userRole, updateData) {
     const where = { id };
 
-    // Клиенты могут обновлять только свои черновики
+    // Клиенты могут обновлять только свои заявки в определенных статусах
     if (userRole === User.ROLES.CLIENT) {
       where.user_id = userId;
-      where.status = Application.STATUSES.DRAFT;
+      // Клиенты могут редактировать заявки в статусах DRAFT, SUBMITTED, IN_REVIEW
+      where.status = {
+        [Op.in]: [Application.STATUSES.DRAFT, Application.STATUSES.SUBMITTED, Application.STATUSES.IN_REVIEW]
+      };
     }
     // Менеджеры могут обновлять назначенные им заявки
     else if (userRole === User.ROLES.MANAGER) {
@@ -349,9 +352,9 @@ class ApplicationService {
     // Клиенты могут удалять только свои заявки в определенных статусах
     if (userRole === User.ROLES.CLIENT) {
       where.user_id = userId;
-      // Клиенты могут удалять заявки в статусах DRAFT и SUBMITTED
+      // Клиенты могут удалять заявки в статусах DRAFT, SUBMITTED, IN_REVIEW
       where.status = {
-        [Op.in]: [Application.STATUSES.DRAFT, Application.STATUSES.SUBMITTED]
+        [Op.in]: [Application.STATUSES.DRAFT, Application.STATUSES.SUBMITTED, Application.STATUSES.IN_REVIEW]
       };
     }
     // Админы могут удалять любые заявки

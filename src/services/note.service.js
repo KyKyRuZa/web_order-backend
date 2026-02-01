@@ -25,12 +25,25 @@ class NoteService {
       return { error: 'Некорректный тип заметки' };
     }
 
+    // Ограничение типа заметки в зависимости от роли пользователя
+    let noteType = noteData.noteType;
+    if (userRole === User.ROLES.CLIENT) {
+      // Клиенты могут создавать только внешние комментарии (не внутренние)
+      if (noteType && noteType !== ApplicationNote.NOTE_TYPES.COMMENT) {
+        return { error: 'Клиенты могут создавать только внешние комментарии' };
+      }
+      noteType = ApplicationNote.NOTE_TYPES.COMMENT;
+    } else if (!noteType) {
+      // Для остальных ролей по умолчанию внутренняя заметка
+      noteType = ApplicationNote.NOTE_TYPES.INTERNAL;
+    }
+
     // Создаем заметку
     const note = await ApplicationNote.create({
       application_id: applicationId,
       author_id: userId,
       content: noteData.content,
-      note_type: noteData.noteType || ApplicationNote.NOTE_TYPES.INTERNAL,
+      note_type: noteType,
       is_pinned: Boolean(noteData.isPinned)
     });
 
@@ -87,6 +100,11 @@ class NoteService {
 
     // Фильтры для поиска заметок
     const where = { application_id: applicationId };
+
+    if (userRole === User.ROLES.CLIENT) {
+      // Клиенты могут видеть только комментарии к заявке
+      where.note_type = ApplicationNote.NOTE_TYPES.COMMENT;
+    }
 
     if (noteType) {
       where.note_type = noteType;
@@ -166,8 +184,8 @@ class NoteService {
       // Менеджер имеет доступ, если заявка назначена ему или он автор заметки
       hasAccess = application.assigned_to === userId || note.author_id === userId;
     } else if (userRole === User.ROLES.CLIENT) {
-      // Клиент имеет доступ, если он автор заявки или автор заметки
-      hasAccess = application.user_id === userId || note.author_id === userId;
+      // Клиент имеет доступ только к комментариям к своей заявке
+      hasAccess = (application.user_id === userId && note.note_type === ApplicationNote.NOTE_TYPES.COMMENT);
     }
 
     if (!hasAccess) {
@@ -187,7 +205,7 @@ class NoteService {
       include: [{
         model: User,
         as: 'author',
-        attributes: ['id', 'role']
+        attributes: ['id', 'role', 'full_name']
       }]
     });
 
@@ -198,12 +216,16 @@ class NoteService {
     // Проверяем права на редактирование
     // Автор может редактировать свои заметки
     // Администраторы могут редактировать любые заметки
+    // Клиенты могут редактировать только свои комментарии
     const isOwner = note.author_id === userId;
-    const isManagerOrAdmin = note.author.role === User.ROLES.MANAGER || 
-                             note.author.role === User.ROLES.ADMIN || 
-                             note.author.role === User.ROLES.SUPER_ADMIN;
+    const isManagerOrAdmin = userRole === User.ROLES.MANAGER ||
+                             userRole === User.ROLES.ADMIN ||
+                             userRole === User.ROLES.SUPER_ADMIN;
+    const isClientAndOwnComment = userRole === User.ROLES.CLIENT &&
+                                  note.author_id === userId &&
+                                  note.note_type === ApplicationNote.NOTE_TYPES.COMMENT;
 
-    if (!isOwner && !isManagerOrAdmin) {
+    if (!isClientAndOwnComment && !isOwner && !isManagerOrAdmin) {
       return { error: 'Нет прав для редактирования этой заметки' };
     }
 
@@ -212,13 +234,31 @@ class NoteService {
       return { error: 'Некорректный тип заметки' };
     }
 
+    // Проверяем права на изменение типа заметки
+    if (updateData.noteType !== undefined) {
+      const isAdmin = userRole === User.ROLES.ADMIN || userRole === User.ROLES.SUPER_ADMIN;
+
+      // Клиенты могут изменить только свои комментарии, и только на другие комментарии
+      if (userRole === User.ROLES.CLIENT && !isAdmin) {
+        // Проверяем, что это комментарий и остается комментарием
+        if (note.note_type !== ApplicationNote.NOTE_TYPES.COMMENT ||
+            updateData.noteType !== ApplicationNote.NOTE_TYPES.COMMENT) {
+          return { error: 'Клиенты могут изменять только внешние комментарии' };
+        }
+      }
+    }
+
     // Сохраняем старые значения для аудита
     const oldValues = { ...note.toJSON() };
 
     // Обновляем заметку
     const updatePayload = {};
     if (updateData.content !== undefined) updatePayload.content = updateData.content;
-    if (updateData.noteType !== undefined) updatePayload.note_type = updateData.noteType;
+    // Клиенты могут изменить тип только если он остается комментарием
+    if (updateData.noteType !== undefined &&
+        (userRole !== User.ROLES.CLIENT || updateData.noteType === ApplicationNote.NOTE_TYPES.COMMENT)) {
+      updatePayload.note_type = updateData.noteType;
+    }
     if (updateData.isPinned !== undefined) updatePayload.is_pinned = Boolean(updateData.isPinned);
 
     await note.update(updatePayload);
@@ -262,7 +302,7 @@ class NoteService {
       include: [{
         model: User,
         as: 'author',
-        attributes: ['id', 'role']
+        attributes: ['id', 'role', 'full_name']
       }]
     });
 
@@ -273,10 +313,14 @@ class NoteService {
     // Проверяем права на удаление
     // Автор может удалить свою заметку
     // Администраторы могут удалить любую заметку
+    // Клиенты могут удалить только свои комментарии
     const isOwner = note.author_id === userId;
     const isAdmin = userRole === User.ROLES.ADMIN || userRole === User.ROLES.SUPER_ADMIN;
+    const isClientAndOwnComment = userRole === User.ROLES.CLIENT &&
+                                  note.author_id === userId &&
+                                  note.note_type === ApplicationNote.NOTE_TYPES.COMMENT;
 
-    if (!isOwner && !isAdmin) {
+    if (!isClientAndOwnComment && !isOwner && !isAdmin) {
       return { error: 'Нет прав для удаления этой заметки' };
     }
 
@@ -316,12 +360,15 @@ class NoteService {
     }
 
     // Проверяем права
-    const isOwner = note.author_id === userId;
-    const isManagerOrAdmin = userRole === User.ROLES.MANAGER || 
-                             userRole === User.ROLES.ADMIN || 
+    // Клиенты могут закреплять только свои комментарии
+    const isClientAndOwnComment = userRole === User.ROLES.CLIENT &&
+                                 note.author_id === userId &&
+                                 note.note_type === ApplicationNote.NOTE_TYPES.COMMENT;
+    const isManagerOrAdmin = userRole === User.ROLES.MANAGER ||
+                             userRole === User.ROLES.ADMIN ||
                              userRole === User.ROLES.SUPER_ADMIN;
 
-    if (!isOwner && !isManagerOrAdmin) {
+    if (!isClientAndOwnComment && !isManagerOrAdmin) {
       return { error: 'Нет прав для изменения статуса закрепления' };
     }
 
@@ -357,9 +404,15 @@ class NoteService {
   // Получение статистики заметок
   static async getNotesStats(applicationId, userId, userRole) {
     let where = {};
-    
+
     if (userRole === User.ROLES.CLIENT) {
-      where = { '$application.user_id$': userId };
+      // Клиенты видят только комментарии к своим заявкам
+      where = {
+        [Op.and]: [
+          { '$application.user_id$': userId },
+          { note_type: ApplicationNote.NOTE_TYPES.COMMENT }
+        ]
+      };
     } else if (userRole === User.ROLES.MANAGER) {
       where = { '$application.assigned_to$': userId };
     }
@@ -413,8 +466,8 @@ class NoteService {
       // Менеджер имеет доступ, если заявка назначена ему или он автор заметки
       hasAccess = application.assigned_to === userId || note.author_id === userId;
     } else if (userRole === User.ROLES.CLIENT) {
-      // Клиент имеет доступ, если он автор заявки или автор заметки
-      hasAccess = application.user_id === userId || note.author_id === userId;
+      // Клиент имеет доступ только к комментариям к своей заявке
+      hasAccess = (application.user_id === userId && note.note_type === ApplicationNote.NOTE_TYPES.COMMENT);
     }
 
     return hasAccess;
