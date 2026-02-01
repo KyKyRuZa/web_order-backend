@@ -46,7 +46,7 @@ const registerValidation = validate([
     .notEmpty().withMessage('Пароль обязателен')
     .isLength({ min: 6 }).withMessage('Пароль должен содержать минимум 6 символов'),
   
-  body('fullName')
+  body('full_name')
     .trim()
     .notEmpty().withMessage('ФИО обязательно')
     .isLength({ min: 2, max: 100 }).withMessage('ФИО должно содержать от 2 до 100 символов'),
@@ -55,7 +55,7 @@ const registerValidation = validate([
     .optional()
     .matches(/^[\+]?[1-9]\d{1,14}$/).withMessage('Некорректный формат номера телефона'),
   
-  body('companyName')
+  body('company_name')
     .optional()
     .trim()
     .isLength({ max: 100 }).withMessage('Название компании не должно превышать 100 символов')
@@ -73,7 +73,7 @@ const loginValidation = validate([
 ]);
 
 const updateProfileValidation = validate([
-  body('fullName')
+  body('full_name')
     .optional()
     .trim()
     .isLength({ min: 2, max: 100 }).withMessage('ФИО должно содержать от 2 до 100 символов'),
@@ -82,7 +82,7 @@ const updateProfileValidation = validate([
     .optional()
     .matches(/^[\+]?[1-9]\d{1,14}$/).withMessage('Некорректный формат номера телефона'),
   
-  body('companyName')
+  body('company_name')
     .optional()
     .trim()
     .isLength({ max: 100 }).withMessage('Название компании не должно превышать 100 символов')

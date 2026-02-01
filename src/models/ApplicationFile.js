@@ -42,6 +42,12 @@ class ApplicationFile extends Model {
   get sizeFormatted() {
     const units = ['B', 'KB', 'MB', 'GB'];
     let size = this.size;
+
+    // Если размер не определен, возвращаем 0 B
+    if (size == null || size === undefined) {
+      return `0 ${units[0]}`;
+    }
+
     let unitIndex = 0;
 
     while (size >= 1024 && unitIndex < units.length - 1) {

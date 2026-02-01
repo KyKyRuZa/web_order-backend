@@ -28,11 +28,16 @@ class ApplicationService {
     // Базовые условия
     const where = {};
 
+    // Клиенты видят только свои заявки
+    if (userRole === User.ROLES.CLIENT) {
+      where.user_id = userId;
+    }
     // Менеджеры видят только назначенные им заявки
-    if (userRole === User.ROLES.MANAGER) {
+    else if (userRole === User.ROLES.MANAGER) {
       where.assigned_to = userId;
-    } else if ((userRole === User.ROLES.ADMIN || userRole === User.ROLES.SUPER_ADMIN) && assigned_to) {
-      // Админы могут фильтровать по менеджеру
+    }
+    // Администраторы могут фильтровать по менеджеру
+    else if ((userRole === User.ROLES.ADMIN || userRole === User.ROLES.SUPER_ADMIN) && assigned_to) {
       where.assigned_to = assigned_to;
     }
 
@@ -235,13 +240,22 @@ class ApplicationService {
       isEditable: application.isEditable
     };
 
-    // Форматируем размеры файлов
-    applicationWithDisplay.files = applicationWithDisplay.files.map(file => ({
-      ...file,
-      sizeFormatted: ApplicationFile.prototype.sizeFormatted.call({ size: file.size }),
-      isImage: file.mime_type.startsWith('image/'),
-      isDocument: ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'].includes(file.mime_type)
-    }));
+    if (applicationWithDisplay.files) {
+      // Проверяем, является ли files массивом, если нет - преобразуем в массив
+      let filesArray = Array.isArray(applicationWithDisplay.files) ? applicationWithDisplay.files : [applicationWithDisplay.files];
+
+      // Фильтруем null/undefined значения и файлы без id и форматируем оставшиеся файлы
+      applicationWithDisplay.files = filesArray
+        .filter(file => file && file.id && typeof file.id !== 'undefined') // Убираем null/undefined файлы и файлы без id
+        .map(file => ({
+          ...file,
+          sizeFormatted: file.size != null ? new (ApplicationFile)( { size: file.size }).sizeFormatted : '0 B',
+          isImage: file.mime_type && file.mime_type.startsWith('image/'),
+          isDocument: file.mime_type && ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'].includes(file.mime_type)
+        }));
+    } else {
+      applicationWithDisplay.files = []; // Устанавливаем пустой массив, если файлов нет
+    }
 
     return {
       success: true,
@@ -251,15 +265,20 @@ class ApplicationService {
 
   // Создание новой заявки
   static async create(userId, applicationData) {
+    // Получаем информацию о пользователе для автозаполнения контактных данных
+    const user = await User.findByPk(userId, {
+      attributes: ['full_name', 'email', 'phone', 'company_name']
+    });
+
     const application = await Application.create({
       user_id: userId,
       title: applicationData.title,
       description: applicationData.description,
-      service_type: applicationData.serviceType,
-      contact_full_name: applicationData.contactFullName || applicationData.contact_full_name,
-      contact_email: applicationData.contactEmail || applicationData.contact_email,
-      contact_phone: applicationData.contactPhone || applicationData.contact_phone,
-      company_name: applicationData.companyName || applicationData.company_name,
+      service_type: applicationData.service_type,
+      contact_full_name: applicationData.contactFullName || applicationData.contact_full_name || user.full_name,
+      contact_email: applicationData.contactEmail || applicationData.contact_email || user.email,
+      contact_phone: applicationData.contactPhone || applicationData.contact_phone || user.phone,
+      company_name: applicationData.companyName || applicationData.company_name || user.company_name,
       expected_budget: applicationData.expectedBudget || applicationData.expected_budget,
       status: Application.STATUSES.DRAFT
     });
@@ -294,6 +313,28 @@ class ApplicationService {
     // Проверяем возможность редактирования
     if (userRole === User.ROLES.CLIENT && !application.isEditable) {
       return { error: 'Заявка не может быть отредактирована в текущем статусе' };
+    }
+
+    // Если пользователь - клиент и не предоставил контактные данные, используем данные из профиля
+    if (userRole === User.ROLES.CLIENT) {
+      // Получаем информацию о пользователе для автозаполнения контактных данных
+      const user = await User.findByPk(userId, {
+        attributes: ['full_name', 'email', 'phone', 'company_name']
+      });
+
+      // Автоматически заполняем контактные данные, если они не были предоставлены
+      if (!updateData.contact_full_name) {
+        updateData.contact_full_name = user.full_name;
+      }
+      if (!updateData.contact_email) {
+        updateData.contact_email = user.email;
+      }
+      if (!updateData.contact_phone) {
+        updateData.contact_phone = user.phone;
+      }
+      if (!updateData.company_name) {
+        updateData.company_name = user.company_name;
+      }
     }
 
     await application.update(updateData);

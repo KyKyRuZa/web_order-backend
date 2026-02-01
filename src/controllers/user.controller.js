@@ -7,9 +7,8 @@ class UserController {
   static async updateProfile(req, res) {
     try {
       const userId = req.user.id;
-      const updateData = req.body;
+      let updateData = req.body;
 
-      // Добавим информацию о запросе
       updateData.req = req;
 
       const result = await UserService.updateProfile(userId, updateData);
