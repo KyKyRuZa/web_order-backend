@@ -54,10 +54,6 @@ class ApplicationController {
       title,
       description,
       service_type,
-      contact_full_name,
-      contact_email,
-      contact_phone,
-      company_name,
       expected_budget  // Обновленное поле - теперь это число, а не ENUM
     } = req.body;
 
@@ -81,10 +77,6 @@ class ApplicationController {
       title,
       description,
       service_type,
-      contact_full_name,
-      contact_email,
-      contact_phone,
-      company_name,
       expected_budget
     };
 

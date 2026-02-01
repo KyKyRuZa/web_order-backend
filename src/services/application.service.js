@@ -387,12 +387,12 @@ class ApplicationService {
       return null;
     }
 
-    // Проверяем обязательные поля
-    const requiredFields = ['title', 'service_type', 'contact_full_name', 'contact_email', 'contact_phone'];
+    // Проверяем обязательные поля (без контактных данных, так как они берутся из профиля)
+    const requiredFields = ['title', 'service_type'];
     const missingFields = requiredFields.filter(field => !application[field]);
 
     if (missingFields.length > 0) {
-      return { 
+      return {
         error: 'Заполните обязательные поля',
         missingFields
       };

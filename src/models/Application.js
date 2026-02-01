@@ -10,7 +10,6 @@ const sequelize = require('../config/sequelize');
  *       required:
  *         - title
  *         - service_type
- *         - contact_email
  *       properties:
  *         id:
  *           type: string
@@ -35,18 +34,22 @@ const sequelize = require('../config/sequelize');
  *           enum: [landing_page, corporate_site, ecommerce, web_application, other]
  *           description: Тип услуги
  *           example: corporate_site
+ *         contact_full_name:
+ *           type: string
+ *           description: Контактное имя (автоматически заполняется из профиля пользователя)
+ *           example: Иван Иванов
  *         contact_email:
  *           type: string
  *           format: email
- *           description: Контактный email
+ *           description: Контактный email (автоматически заполняется из профиля пользователя)
  *           example: client@example.com
  *         contact_phone:
  *           type: string
- *           description: Контактный телефон
+ *           description: Контактный телефон (автоматически заполняется из профиля пользователя)
  *           example: +79991234567
  *         company_name:
  *           type: string
- *           description: Название компании клиента
+ *           description: Название компании клиента (автоматически заполняется из профиля пользователя)
  *           example: ООО "Рога и копыта"
  *         expected_budget:
  *           type: integer
@@ -92,9 +95,6 @@ const sequelize = require('../config/sequelize');
  *       required:
  *         - title
  *         - service_type
- *         - contact_full_name
- *         - contact_email
- *         - contact_phone
  *       properties:
  *         title:
  *           type: string
@@ -109,23 +109,6 @@ const sequelize = require('../config/sequelize');
  *           enum: [landing_page, corporate_site, ecommerce, web_application, other]
  *           description: Тип услуги
  *           example: corporate_site
- *         contact_full_name:
- *           type: string
- *           description: Контактное имя
- *           example: Иван Иванов
- *         contact_email:
- *           type: string
- *           format: email
- *           description: Контактный email
- *           example: client@example.com
- *         contact_phone:
- *           type: string
- *           description: Контактный телефон
- *           example: +79991234567
- *         company_name:
- *           type: string
- *           description: Название компании клиента
- *           example: ООО "Рога и копыта"
  *         expected_budget:
  *           type: integer
  *           description: Ожидаемый бюджет в рублях
@@ -297,9 +280,7 @@ class Application extends Model {
       errors.push('Описание должно содержать не менее 10 символов');
     }
 
-    if (!application.contact_email || !/\S+@\S+\.\S+/.test(application.contact_email)) {
-      errors.push('Необходимо указать корректный email');
-    }
+    // Не проверяем контактные данные, так как они берутся из профиля пользователя
 
     return errors;
   }
@@ -319,6 +300,10 @@ class Application extends Model {
           throw new Error(`Ошибка валидации при отправке: ${validationErrors.join(', ')}`);
         }
       }
+    },
+    beforeCreate: (application) => {
+      // Убедиться, что контактные данные заполнены из профиля пользователя при создании
+      // (это будет обрабатываться в сервисе, но добавим базовую защиту)
     },
     beforeUpdate: (application) => {
       if (
@@ -508,22 +493,29 @@ Application.init(
         }
       }
     },
-    // Контактная информация - минимальный набор
+    // Контактная информация - будет заполняться из профиля пользователя
+    contact_full_name: {
+      type: DataTypes.STRING(100),
+      allowNull: true,
+      validate: {
+        len: {
+          args: [0, 100],
+          msg: 'Контактное имя не должно превышать 100 символов'
+        }
+      }
+    },
     contact_email: {
       type: DataTypes.STRING(255),
-      allowNull: false,
+      allowNull: true, // Сделать опциональным, так как будет браться из профиля
       validate: {
         isEmail: {
           msg: 'Некорректный формат email'
-        },
-        notEmpty: {
-          msg: 'Email контакта обязателен'
         }
       }
     },
     contact_phone: {
       type: DataTypes.STRING(20),
-      allowNull: true, // Сделать опциональным
+      allowNull: true, // Сделать опциональным, так как будет браться из профиля
       validate: {
         is: {
           args: [/^[\+]?[1-9]\d{1,14}$/],
