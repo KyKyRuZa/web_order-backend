@@ -5,7 +5,7 @@ const path = require('path');
 
 class FileService {
   // Загрузка файла к заявке
-  static async uploadFile(applicationId, userId, userRole, file, additionalData = {}) {
+  static async uploadFile(applicationId, userId, userRole, file, additionalData = {}, req = null) {
     // Проверяем доступ к заявке
     let application;
     if (userRole === User.ROLES.CLIENT) {
@@ -42,15 +42,49 @@ class FileService {
       return { error: 'Некорректная категория файла' };
     }
 
+    // Получаем название заявки для создания структуры папок
+    const appName = application.title.replace(/[<>:"/\\|?*]/g, '_').substring(0, 100); // Ограничиваем длину и убираем недопустимые символы
+
+    // Используем корректно обработанное имя файла из middleware, если оно доступно
+    let originalFilename = file.originalname;
+
+    // Проверяем, есть ли корректно обработанное имя в req
+    if (req && req.filesInfo && req.filesInfo.file) {
+      originalFilename = req.filesInfo.file.originalname || file.originalname;
+    } else {
+      // Декодируем оригинальное имя файла, если оно закодировано неправильно
+      try {
+        // Проверяем, не закодировано ли имя файла в неправильной кодировке
+        if (/[\u0080-\u00ff]/.test(originalFilename)) {
+          // Если имя содержит символы в диапазоне, характерном для неправильно декодированной кириллицы
+          originalFilename = Buffer.from(originalFilename, 'binary').toString('utf8');
+        }
+      } catch (error) {
+        console.error('Error decoding filename:', error);
+      }
+    }
+
+    // Формируем новый путь для файла с использованием названия заявки
+    const appDir = path.join(path.dirname(file.path), appName);
+    if (!fs.existsSync(appDir)) {
+      fs.mkdirSync(appDir, { recursive: true });
+    }
+
+    // Формируем путь к новому файлу с оригинальным именем
+    const newFilePath = path.join(appDir, originalFilename);
+
+    // Переименовываем файл
+    fs.renameSync(file.path, newFilePath);
+
     // Сохраняем информацию о файле в базе данных
     const fileRecord = await ApplicationFile.create({
       application_id: application.id,
       uploaded_by: userId,
-      filename: file.filename,
-      original_name: file.originalname,
+      filename: path.basename(newFilePath), // Только имя файла
+      original_name: originalFilename, // Используем корректно декодированное имя
       mime_type: file.mimetype,
       size: file.size,
-      storage_path: file.path,
+      storage_path: newFilePath, // Полный путь к файлу
       file_category: category || ApplicationFile.FILE_CATEGORIES.OTHER,
       description: description || null
     });
@@ -196,6 +230,16 @@ class FileService {
 
     // Сохраняем данные для аудита перед удалением
     const fileData = { ...file.toJSON() };
+
+    // Удаляем файл с диска перед удалением записи из базы
+    if (file.storage_path && fs.existsSync(file.storage_path)) {
+      try {
+        fs.unlinkSync(file.storage_path);
+      } catch (err) {
+        console.error('Error deleting file from disk:', err);
+        // Не прерываем операцию удаления из базы, даже если не удалось удалить файл с диска
+      }
+    }
 
     await file.destroy();
 
@@ -357,7 +401,7 @@ class FileService {
 
   // Удаление файла с диска
   static async deleteFileFromDisk(filePath) {
-    if (fs.existsSync(filePath)) {
+    if (filePath && fs.existsSync(filePath)) {
       try {
         fs.unlinkSync(filePath);
         return true;
@@ -366,7 +410,7 @@ class FileService {
         return false;
       }
     }
-    return true; // Файл уже удален
+    return true; // Файл уже удален или не существует
   }
 }
 

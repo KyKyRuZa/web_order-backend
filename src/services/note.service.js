@@ -102,8 +102,8 @@ class NoteService {
     const where = { application_id: applicationId };
 
     if (userRole === User.ROLES.CLIENT) {
-      // Клиенты могут видеть только комментарии к заявке
-      where.note_type = ApplicationNote.NOTE_TYPES.COMMENT;
+      // Клиенты могут видеть все заметки от менеджеров и админов к своей заявке
+      where['$author.role$'] = { [Op.in]: [User.ROLES.CLIENT, User.ROLES.MANAGER, User.ROLES.ADMIN, User.ROLES.SUPER_ADMIN] };
     }
 
     if (noteType) {

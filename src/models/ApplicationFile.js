@@ -66,6 +66,18 @@ class ApplicationFile extends Model {
       'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
     ].includes(this.mime_type);
   }
+
+  // Геттер для URL файла
+  get url() {
+    if (this.storage_path) {
+      // Получаем относительный путь от директории uploads
+      const path = require('path');
+      const uploadsDir = path.join(__dirname, '../../uploads');
+      const relativePath = path.relative(uploadsDir, this.storage_path);
+      return `/uploads/${relativePath}`;
+    }
+    return null;
+  }
 }
 
 ApplicationFile.init(

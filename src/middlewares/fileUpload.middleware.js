@@ -12,20 +12,29 @@ if (!fs.existsSync(uploadDir)) {
 // Настройка хранилища multer
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    // Создаем поддиректорию для каждой заявки
-    const appId = req.params.id;
-    const appDir = path.join(uploadDir, appId);
-    
-    if (!fs.existsSync(appDir)) {
-      fs.mkdirSync(appDir, { recursive: true });
-    }
-    
-    cb(null, appDir);
+    // Сохраняем файлы в основную директорию uploads
+    // Перемещение в папку с названием заявки будет происходить в сервисе
+    cb(null, uploadDir);
   },
   filename: function (req, file, cb) {
     // Генерируем уникальное имя файла
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
     const ext = path.extname(file.originalname);
+
+    // Проверяем и корректируем имя файла, если оно содержит неправильно закодированные символы
+    let originalName = file.originalname;
+    try {
+      if (/[\u0080-\u00ff]/.test(originalName)) {
+        originalName = Buffer.from(originalName, 'binary').toString('utf8');
+      }
+    } catch (error) {
+      console.error('Error processing filename:', error);
+    }
+
+    // Сохраняем оригинальное имя в req для дальнейшего использования
+    if (!req.filesInfo) req.filesInfo = {};
+    req.filesInfo[file.fieldname] = { originalname: originalName };
+
     cb(null, file.fieldname + '-' + uniqueSuffix + ext);
   }
 });

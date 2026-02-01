@@ -460,7 +460,7 @@ router.post('/applications/:id/notes', requireManager, AdminController.addIntern
 // === Пользователи ===
 
 // Получение списка пользователей
-router.get('/users', requireAdmin, AdminController.getUsers);
+router.get('/users', requireManager, AdminController.getUsers);
 
 // Изменение роли пользователя
 router.put('/users/:id/role', requireAdmin, notSelfAction, AdminController.updateUserRole);

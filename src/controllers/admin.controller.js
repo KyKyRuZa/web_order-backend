@@ -189,24 +189,64 @@ class AdminController {
         order = 'DESC'
       } = req.query;
 
-      const filters = {
-        role,
-        is_active,
-        date_from,
-        date_to,
-        search,
-        has_applications
-      };
+      const userRole = req.user.role;
 
-      const options = {
-        page,
-        limit,
-        sortBy: sort_by,
-        order
-      };
+      // Проверяем права доступа
+      if (userRole !== User.ROLES.ADMIN && userRole !== User.ROLES.SUPER_ADMIN) {
+        // Менеджеры могут получать только список других менеджеров
+        if (userRole === User.ROLES.MANAGER) {
+          if (role && role !== 'manager') {
+            return res.status(403).json({
+              success: false,
+              message: 'Менеджеры могут получать только список других менеджеров'
+            });
+          }
+          // Устанавливаем принудительно роль 'manager', чтобы предотвратить получение других ролей
+          const filters = {
+            role: 'manager', // Только менеджеры
+            is_active,
+            date_from,
+            date_to,
+            search,
+            has_applications
+          };
 
-      const result = await UserService.getUsers(filters, options);
-      res.json(result);
+          const options = {
+            page,
+            limit,
+            sortBy: sort_by,
+            order
+          };
+
+          const result = await UserService.getUsers(filters, options);
+          res.json(result);
+        } else {
+          return res.status(403).json({
+            success: false,
+            message: 'Недостаточно прав для получения списка пользователей'
+          });
+        }
+      } else {
+        // Администраторы и суперадмины могут получать список всех пользователей
+        const filters = {
+          role,
+          is_active,
+          date_from,
+          date_to,
+          search,
+          has_applications
+        };
+
+        const options = {
+          page,
+          limit,
+          sortBy: sort_by,
+          order
+        };
+
+        const result = await UserService.getUsers(filters, options);
+        res.json(result);
+      }
     } catch (error) {
       console.error('Get users error:', error);
       res.status(500).json({

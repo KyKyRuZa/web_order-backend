@@ -337,7 +337,7 @@ class ApplicationController {
         userAgent: req.headers['user-agent']
       };
 
-      const result = await FileService.uploadFile(id, userId, userRole, req.file, fileData);
+      const result = await FileService.uploadFile(id, userId, userRole, req.file, fileData, req);
 
       if (result.error) {
         return res.status(400).json({

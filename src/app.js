@@ -207,6 +207,11 @@ app.get('/api/test-db', async (req, res, next) => {
 // === Swagger UI ===
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
+const path = require('path');
+
+// === Обслуживание файлов ===
+app.use('/uploads', express.static(path.join(__dirname, '../../uploads')));
+
 // === Основные маршруты API ===
 app.use('/api/auth', authRoutes);
 app.use('/api/applications', applicationRoutes);
