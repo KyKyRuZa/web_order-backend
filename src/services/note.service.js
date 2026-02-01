@@ -1,4 +1,4 @@
-const { ApplicationNote, User, Application, AuditLog } = require('../models');
+const { ApplicationNote, User, Application, AuditLog, Notification } = require('../models');
 const { Op } = require('sequelize');
 
 class NoteService {
@@ -70,6 +70,66 @@ class NoteService {
         attributes: ['id', 'full_name', 'email']
       }]
     });
+
+    // Если заметка создана менеджером или админом, создаем уведомление для владельца заявки
+    if (userRole === User.ROLES.MANAGER || userRole === User.ROLES.ADMIN || userRole === User.ROLES.SUPER_ADMIN) {
+      const application = await Application.findByPk(applicationId);
+      if (application) {
+        const NotificationService = require('./notification.service');
+        const noteAuthor = await User.findByPk(userId, { attributes: ['id', 'full_name'] });
+        await NotificationService.createNoteAddedNotification(application, noteAuthor, noteData.content);
+      }
+    }
+    // Если заметка создана клиентом, создаем уведомление для назначенного менеджера и админов
+    else if (userRole === User.ROLES.CLIENT) {
+      const application = await Application.findByPk(applicationId);
+      if (application) {
+        const NotificationService = require('./notification.service');
+        const noteAuthor = await User.findByPk(userId, { attributes: ['id', 'full_name'] });
+
+        // Создаем уведомление для назначенного менеджера, если он назначен
+        if (application.assigned_to) {
+          const manager = await User.findByPk(application.assigned_to);
+          if (manager) {
+            await NotificationService.createNotification(
+              application.assigned_to,
+              Notification.TYPES.NOTE_ADDED,
+              `Клиент ${noteAuthor.full_name} добавил заметку к заявке "${application.title}"`,
+              {
+                application_id: application.id,
+                application_title: application.title,
+                note_author: noteAuthor.full_name,
+                note_author_id: noteAuthor.id,
+                note_content: noteData.content.substring(0, 100) + (noteData.content.length > 100 ? '...' : '')
+              }
+            );
+          }
+        }
+
+        // Создаем уведомления для админов
+        const admins = await User.findAll({
+          where: {
+            role: { [Op.in]: [User.ROLES.ADMIN, User.ROLES.SUPER_ADMIN] }
+          },
+          attributes: ['id']
+        });
+
+        for (const admin of admins) {
+          await NotificationService.createNotification(
+            admin.id,
+            Notification.TYPES.NOTE_ADDED,
+            `Клиент ${noteAuthor.full_name} добавил заметку к заявке "${application.title}"`,
+            {
+              application_id: application.id,
+              application_title: application.title,
+              note_author: noteAuthor.full_name,
+              note_author_id: noteAuthor.id,
+              note_content: noteData.content.substring(0, 100) + (noteData.content.length > 100 ? '...' : '')
+            }
+          );
+        }
+      }
+    }
 
     return {
       success: true,

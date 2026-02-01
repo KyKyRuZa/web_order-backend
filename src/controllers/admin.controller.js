@@ -104,7 +104,7 @@ class AdminController {
       console.error('Update application status error:', error);
       res.status(500).json({
         success: false,
-        message: 'Ошибка изменения статуса заявки'
+        message: error.message || 'Ошибка изменения статуса заявки'
       });
     }
   }

@@ -4,6 +4,7 @@ const ApplicationFile = require('./ApplicationFile');
 const ApplicationNote = require('./ApplicationNote');
 const StatusHistory = require('./StatusHistory');
 const AuditLog = require('./AuditLog');
+const Notification = require('./Notification');
 
 // Отношения пользователей и заявок
 User.hasMany(Application, {
@@ -100,11 +101,24 @@ User.hasMany(AuditLog, {
   as: 'auditLogs'
 });
 
+// Отношения для уведомлений
+User.hasMany(Notification, {
+  foreignKey: 'user_id',
+  as: 'notifications',
+  onDelete: 'CASCADE'
+});
+
+Notification.belongsTo(User, {
+  foreignKey: 'user_id',
+  as: 'user'
+});
+
 module.exports = {
   User,
   Application,
   ApplicationFile,
   ApplicationNote,
   StatusHistory,
-  AuditLog
+  AuditLog,
+  Notification
 };

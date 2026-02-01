@@ -1,4 +1,4 @@
-const { Application, User, StatusHistory, ApplicationFile, AuditLog } = require('../models');
+const { Application, User, StatusHistory, ApplicationFile, AuditLog, Notification } = require('../models');
 const { Op } = require('sequelize');
 const sequelize = require('../config/sequelize');
 
@@ -502,6 +502,38 @@ class ApplicationService {
         transaction
       });
 
+      // Создаем уведомление для владельца заявки
+      const NotificationService = require('./notification.service');
+      const changedByUser = await User.findByPk(userId, { attributes: ['id', 'full_name'] });
+      await NotificationService.createStatusChangeNotification(
+        application,
+        changedByUser,
+        application.statusDisplay || oldStatus,
+        Application.getStatusDisplay(status) || status
+      );
+
+      // Создаем уведомление для назначенного менеджера (если статус изменил не он сам)
+      if (application.assigned_to && application.assigned_to !== userId) {
+        const manager = await User.findByPk(application.assigned_to);
+        if (manager) {
+          const message = `Статус заявки "${application.title}" изменился с "${application.statusDisplay || oldStatus}" на "${Application.getStatusDisplay(status) || status}". Изменил: ${changedByUser.full_name}`;
+
+          await NotificationService.createNotification(
+            application.assigned_to,
+            Notification.TYPES.STATUS_CHANGED,
+            message,
+            {
+              application_id: application.id,
+              application_title: application.title,
+              old_status: application.statusDisplay || oldStatus,
+              new_status: Application.getStatusDisplay(status) || status,
+              changed_by: changedByUser.full_name,
+              changed_by_id: changedByUser.id
+            }
+          );
+        }
+      }
+
       // Коммитим транзакцию
       await transaction.commit();
 
@@ -549,7 +581,9 @@ class ApplicationService {
       };
     } catch (error) {
       await transaction.rollback();
-      throw error;
+      console.error('Update status error:', error);
+      // Возвращаем ошибку вместо выбрасывания исключения
+      return { error: error.message || 'Ошибка изменения статуса' };
     }
   }
 
@@ -568,7 +602,13 @@ class ApplicationService {
     }
 
     // Находим заявку
-    const application = await Application.findByPk(id);
+    const application = await Application.findByPk(id, {
+      include: [{
+        model: User,
+        as: 'user',
+        attributes: ['id', 'full_name', 'email']
+      }]
+    });
 
     if (!application) {
       return { error: 'Заявка не найдена' };
@@ -600,6 +640,14 @@ class ApplicationService {
       })(),
       userAgent: req.headers['user-agent']
     });
+
+    // Создаем уведомление для назначенного менеджера
+    const NotificationService = require('./notification.service');
+    await NotificationService.createNotification(
+      managerId,
+      Notification.TYPES.APPLICATION_ASSIGNED,
+      `Вам назначена заявка "${application.title}" от клиента ${application.user?.full_name || 'неизвестного'}`
+    );
 
     return {
       success: true,

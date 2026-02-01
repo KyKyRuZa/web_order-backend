@@ -218,6 +218,7 @@ app.use('/api/applications', applicationRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/notes', noteRoutes);
 app.use('/api/audit', auditRoutes);
+app.use('/api/notifications', require('./routes/notification.routes'));
 
 // === Обработка ошибок ===
 app.use(errorHandler);

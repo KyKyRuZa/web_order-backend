@@ -428,16 +428,23 @@ class Application extends Model {
 
     // Создаем запись в истории статусов
     if (changedBy) {
-      const StatusHistory = require('./StatusHistory');
-      await StatusHistory.create({
-        application_id: this.id,
-        old_status: oldStatus,
-        new_status: newStatus,
-        changed_by: changedBy,
-        comment: options.comment || null,
-        ip_address: options.ipAddress || null,
-        user_agent: options.userAgent || null
-      }, { transaction: options.transaction });
+      try {
+        // Используем динамический импорт для избежания циклических зависимостей
+        const StatusHistoryModule = require('./StatusHistory');
+        const StatusHistory = StatusHistoryModule.default || StatusHistoryModule;
+        await StatusHistory.create({
+          application_id: this.id,
+          old_status: oldStatus,
+          new_status: newStatus,
+          changed_by: changedBy,
+          comment: options.comment || null,
+          ip_address: options.ipAddress || null,
+          user_agent: options.userAgent || null
+        }, { transaction: options.transaction });
+      } catch (error) {
+        console.error('Error creating status history:', error);
+        // Не прерываем операцию изменения статуса, даже если не удалось создать запись в истории
+      }
     }
 
     return this;
